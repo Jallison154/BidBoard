@@ -1,0 +1,93 @@
+.bb-audience-stage {
+  background: var(--bb-bg);
+  font-family: var(--bb-font);
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+.bb-number {
+  color: var(--bb-number-color);
+  font-weight: var(--bb-number-weight);
+  font-size: calc(clamp(4rem, 20vw, 16rem) * var(--bb-number-scale));
+  line-height: 1;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.bb-name {
+  color: var(--bb-name-color);
+  font-weight: var(--bb-name-weight);
+  font-size: calc(clamp(1.5rem, 6vw, 5rem) * var(--bb-name-scale));
+  line-height: 1.15;
+  margin: 0;
+  max-width: 92vw;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.bb-company {
+  color: var(--bb-name-color);
+  opacity: 0.75;
+  font-size: calc(clamp(1rem, 2.4vw, 2rem) * var(--bb-name-scale));
+  margin: 0;
+}
+
+.bb-event-title {
+  color: var(--bb-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: clamp(0.9rem, 1.6vw, 1.4rem);
+  font-weight: 700;
+}
+
+.bb-event-subtitle {
+  color: var(--bb-name-color);
+  opacity: 0.8;
+  font-size: clamp(0.8rem, 1.2vw, 1.1rem);
+}
+
+.bb-waiting-message {
+  color: var(--bb-name-color);
+  font-size: clamp(1.2rem, 3vw, 2.5rem);
+  font-weight: 600;
+  text-align: center;
+}
+
+.bb-logo {
+  object-fit: contain;
+  max-height: calc(4rem * var(--bb-logo-scale, 1));
+  max-width: 28vw;
+  position: absolute;
+}
+
+.bb-logo-center {
+  max-height: calc(10rem * var(--bb-logo-scale, 1));
+  max-width: 40vw;
+  position: static;
+}
+
+.bb-logo-top-left { top: 2rem; left: 2rem; }
+.bb-logo-top-center { top: 2rem; left: 50%; transform: translateX(-50%); }
+.bb-logo-top-right { top: 2rem; right: 2rem; }
+.bb-logo-bottom-left { bottom: 2rem; left: 2rem; }
+.bb-logo-bottom-center { bottom: 2rem; left: 50%; transform: translateX(-50%); }
+.bb-logo-bottom-right { bottom: 2rem; right: 2rem; }
+
+@keyframes bb-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes bb-slide-up {
+  from { opacity: 0; transform: translateY(2.5vh); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.bb-transition-fade { animation: bb-fade-in 380ms ease; }
+.bb-transition-quick-fade { animation: bb-fade-in 150ms ease; }
+.bb-transition-slide-up { animation: bb-slide-up 260ms ease; }
+.bb-transition-none { animation: none; }
