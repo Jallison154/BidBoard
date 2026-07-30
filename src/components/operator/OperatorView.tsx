@@ -7,7 +7,6 @@ import { Header } from './Header';
 import { BidderConsole } from './BidderConsole';
 import { RecentHistoryPanel } from './RecentHistoryPanel';
 import { BidderListPanel } from './BidderListPanel';
-import { AudienceStatusCard } from './AudienceStatusCard';
 import { LiveOutputPreview } from './LiveOutputPreview';
 import { ApprovalRequestsPanel } from './ApprovalRequestsPanel';
 import { ImportWizard } from './ImportWizard';
@@ -165,21 +164,20 @@ export function OperatorView() {
                 onRequestClear={requestClear}
                 onRequestShowUnknown={requestShowUnknown}
               />
-            </div>
-
-            <div className="flex flex-1 flex-col gap-4 overflow-y-auto pr-1">
               <LiveOutputPreview
                 connected={consoleApi.connected}
                 channelSupported={consoleApi.channelSupported}
                 resolution={consoleApi.resolution}
                 isLive={!!consoleApi.liveBidder}
-              />
-              <AudienceStatusCard
-                connected={consoleApi.connected}
-                channelSupported={consoleApi.channelSupported}
                 onOpenAudience={consoleApi.openAudienceWindow}
               />
+            </div>
+
+            <div className="flex w-[320px] shrink-0 flex-col gap-4 overflow-y-auto pr-1">
               <RecentHistoryPanel history={sortedHistory} onRedisplay={consoleApi.redisplay} onClearHistory={app.clearHistory} />
+            </div>
+
+            <div className="flex flex-1 flex-col gap-4 overflow-y-auto pr-1">
               <BidderListPanel
                 bidders={activeEvent.bidders}
                 eventName={activeEvent.name}

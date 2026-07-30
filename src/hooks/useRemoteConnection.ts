@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
+import { v4 as uuidv4 } from 'uuid';
 import type {
   ClientToServerEvents,
   RemoteCurrentBidder,
@@ -26,11 +27,11 @@ function getOrCreateDeviceId(): string {
   try {
     const existing = localStorage.getItem(DEVICE_ID_KEY);
     if (existing) return existing;
-    const id = crypto.randomUUID();
+    const id = uuidv4();
     localStorage.setItem(DEVICE_ID_KEY, id);
     return id;
   } catch {
-    return crypto.randomUUID();
+    return uuidv4();
   }
 }
 
@@ -152,14 +153,14 @@ export function useRemoteConnection() {
   }, []);
 
   const submitBidder = useCallback((bidderNumber: string, onResult: (result: SubmissionResult) => void): string => {
-    const requestId = crypto.randomUUID();
+    const requestId = uuidv4();
     resultHandlersRef.current.set(requestId, onResult);
     socketRef.current?.emit('remote:submitBidder', { requestId, bidderNumber });
     return requestId;
   }, []);
 
   const requestClear = useCallback(() => {
-    const requestId = crypto.randomUUID();
+    const requestId = uuidv4();
     socketRef.current?.emit('remote:clearRequest', { requestId });
   }, []);
 

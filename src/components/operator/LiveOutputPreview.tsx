@@ -6,6 +6,7 @@ interface LiveOutputPreviewProps {
   channelSupported: boolean;
   resolution: DisplayResolution | null;
   isLive: boolean;
+  onOpenAudience: () => void;
 }
 
 const SAFE_AREA_GUIDES_KEY = 'bidboard:showSafeAreaGuides';
@@ -23,10 +24,10 @@ type StatusColor = 'green' | 'yellow' | 'red';
 function statusFor(connected: boolean, channelSupported: boolean): { color: StatusColor; label: string } {
   if (!channelSupported) return { color: 'red', label: 'Communication error' };
   if (connected) return { color: 'green', label: 'Audience display connected' };
-  return { color: 'yellow', label: 'Preview active — audience window not connected' };
+  return { color: 'yellow', label: 'Audience window not connected' };
 }
 
-export function LiveOutputPreview({ connected, channelSupported, resolution, isLive }: LiveOutputPreviewProps) {
+export function LiveOutputPreview({ connected, channelSupported, resolution, isLive, onOpenAudience }: LiveOutputPreviewProps) {
   const [showGuides, setShowGuides] = useState(readSafeAreaGuidesPref);
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export function LiveOutputPreview({ connected, channelSupported, resolution, isL
     status.color === 'green' ? 'text-green-400' : status.color === 'yellow' ? 'text-amber-300' : 'text-red-400';
 
   const src = `${window.location.pathname}?view=audience&embedded=1`;
+  const aspectRatio = resolution ? `${resolution.width} / ${resolution.height}` : '1920 / 1080';
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-white/10 bg-neutral-900/60 p-4">
@@ -63,7 +65,10 @@ export function LiveOutputPreview({ connected, channelSupported, resolution, isL
         </label>
       </div>
 
-      <div className="relative w-full overflow-hidden rounded-md border-2 border-white/15" style={{ aspectRatio: '16 / 9' }}>
+      <div
+        className="relative mx-auto w-full max-w-sm overflow-hidden rounded-md border-2 border-white/15"
+        style={{ aspectRatio }}
+      >
         <iframe
           src={src}
           title="Live audience output preview"
@@ -76,9 +81,6 @@ export function LiveOutputPreview({ connected, channelSupported, resolution, isL
             <div className="absolute inset-[10%] border border-dashed border-blue-400/30" />
           </div>
         )}
-        <div className="pointer-events-none absolute left-2 top-2 rounded bg-black/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-          Live Output
-        </div>
       </div>
 
       <div className="flex items-center justify-between text-xs">
@@ -92,6 +94,26 @@ export function LiveOutputPreview({ connected, channelSupported, resolution, isL
           </span>
         )}
       </div>
+
+      <div className="flex items-center gap-2 border-t border-white/10 pt-2">
+        <button
+          type="button"
+          onClick={onOpenAudience}
+          className="shrink-0 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-500"
+        >
+          Open Audience Display
+        </button>
+        <p className="text-xs text-neutral-500">
+          Drag it to your second screen, press{' '}
+          <kbd className="rounded border border-white/20 bg-black/40 px-1">F11</kbd> to go full-screen, or{' '}
+          <kbd className="rounded border border-white/20 bg-black/40 px-1">F</kbd> here to reopen it.
+        </p>
+      </div>
+      {!channelSupported && (
+        <p className="text-xs text-amber-400">
+          This browser doesn't support live window messaging. Use an up-to-date Chrome, Edge, Firefox, or Safari.
+        </p>
+      )}
     </div>
   );
 }
