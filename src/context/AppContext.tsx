@@ -31,6 +31,8 @@ interface AppContextValue {
   applyPreset: (presetId: Exclude<DisplayPresetId, 'custom'>) => void;
   updateSafety: (patch: Partial<SafetySettings>) => void;
   setAutoShow: (value: boolean) => void;
+  setAutoClearEnabled: (value: boolean) => void;
+  setAutoClearSeconds: (seconds: number) => void;
   addHistoryEntry: (
     bidderNumber: string,
     displayName: string,
@@ -230,6 +232,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [patchActiveEvent],
   );
 
+  const setAutoClearEnabled = useCallback(
+    (value: boolean) => {
+      patchActiveEvent(() => ({ autoClearEnabled: value }));
+    },
+    [patchActiveEvent],
+  );
+
+  const setAutoClearSeconds = useCallback(
+    (seconds: number) => {
+      patchActiveEvent(() => ({ autoClearSeconds: Math.max(1, Math.round(seconds)) }));
+    },
+    [patchActiveEvent],
+  );
+
   const addHistoryEntry = useCallback(
     (bidderNumber: string, displayName: string, company: string | undefined, opts?: { force?: boolean }) => {
       patchActiveEvent((event) => {
@@ -279,6 +295,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     applyPreset,
     updateSafety,
     setAutoShow,
+    setAutoClearEnabled,
+    setAutoClearSeconds,
     addHistoryEntry,
     clearHistory,
   };

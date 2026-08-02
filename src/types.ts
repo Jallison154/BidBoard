@@ -83,6 +83,8 @@ export interface BidBoardEvent {
   safety: SafetySettings;
   history: HistoryEntry[];
   autoShow: boolean;
+  autoClearEnabled: boolean;
+  autoClearSeconds: number;
   createdAt: number;
   updatedAt: number;
 }

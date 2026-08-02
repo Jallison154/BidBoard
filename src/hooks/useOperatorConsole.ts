@@ -18,6 +18,8 @@ export function useOperatorConsole() {
   const bidders = useMemo(() => activeEvent?.bidders ?? [], [activeEvent]);
   const safety = activeEvent?.safety;
   const autoShow = activeEvent?.autoShow ?? false;
+  const autoClearEnabled = activeEvent?.autoClearEnabled ?? false;
+  const autoClearSeconds = activeEvent?.autoClearSeconds ?? 20;
   const settings = activeEvent?.displaySettings ?? defaultDisplaySettings();
 
   const [inputValue, setInputValue] = useState('');
@@ -149,6 +151,14 @@ export function useOperatorConsole() {
     setLiveBidder(null);
     focusInput();
   }, [channel, focusInput]);
+
+  useEffect(() => {
+    if (!autoClearEnabled || !liveBidder) return;
+    const timeoutId = window.setTimeout(() => {
+      clearDisplayNow();
+    }, autoClearSeconds * 1000);
+    return () => window.clearTimeout(timeoutId);
+  }, [liveBidder, autoClearEnabled, autoClearSeconds, clearDisplayNow]);
 
   const redisplay = useCallback(
     (entry: HistoryEntry) => {

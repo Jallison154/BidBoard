@@ -135,8 +135,8 @@ export function BidderListPanel({
   const deleteTarget = bidders.find((b) => b.id === confirmDeleteId);
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-neutral-900/60 p-4">
-      <div className="flex items-center justify-between">
+    <div className="flex h-full min-h-0 flex-col gap-3 rounded-lg border border-white/10 bg-neutral-900/60 p-4">
+      <div className="flex shrink-0 items-center justify-between">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
           Bidder List ({bidders.length})
         </h3>
@@ -168,7 +168,7 @@ export function BidderListPanel({
       </div>
 
       {locked && (
-        <p className="rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs text-amber-300">
+        <p className="shrink-0 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs text-amber-300">
           Bidder list editing is locked in Event Settings.
         </p>
       )}
@@ -177,23 +177,25 @@ export function BidderListPanel({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search bidders…"
-        className="rounded border border-white/15 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+        className="shrink-0 rounded border border-white/15 bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
       />
 
       {!locked &&
         (adding ? (
-          <AddBidderForm onAdd={onAdd} onDone={() => setAdding(false)} />
+          <div className="shrink-0">
+            <AddBidderForm onAdd={onAdd} onDone={() => setAdding(false)} />
+          </div>
         ) : (
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="self-start rounded border border-white/15 px-2 py-1 text-xs font-semibold text-neutral-300 hover:bg-white/5"
+            className="shrink-0 self-start rounded border border-white/15 px-2 py-1 text-xs font-semibold text-neutral-300 hover:bg-white/5"
           >
             + Add Bidder
           </button>
         ))}
 
-      <ul className="flex max-h-80 flex-col gap-1 overflow-y-auto">
+      <ul className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
         {filtered.length === 0 && <p className="text-sm text-neutral-500">No bidders found.</p>}
         {filtered.map((b) =>
           editingId === b.id ? (

@@ -16,8 +16,8 @@ export function RecentHistoryPanel({ history, onRedisplay, onClearHistory }: Rec
   const [confirmClear, setConfirmClear] = useState(false);
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-neutral-900/60 p-4">
-      <div className="flex items-center justify-between">
+    <div className="flex h-full min-h-0 flex-col gap-3 rounded-lg border border-white/10 bg-neutral-900/60 p-4">
+      <div className="flex shrink-0 items-center justify-between">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Recently Displayed</h3>
         {history.length > 0 && (
           <button
@@ -33,7 +33,7 @@ export function RecentHistoryPanel({ history, onRedisplay, onClearHistory }: Rec
       {history.length === 0 ? (
         <p className="text-sm text-neutral-500">Nothing displayed yet.</p>
       ) : (
-        <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto">
+        <ul className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
           {history.map((entry) => (
             <li
               key={entry.id}

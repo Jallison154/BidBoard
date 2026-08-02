@@ -156,6 +156,8 @@ export function createEvent(name: string, options?: { withDemoBidders?: boolean 
     safety: { ...DEFAULT_SAFETY },
     history: [],
     autoShow: false,
+    autoClearEnabled: false,
+    autoClearSeconds: 20,
     createdAt: now,
     updatedAt: now,
   };

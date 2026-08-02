@@ -167,3 +167,48 @@ describe('recent history behavior', () => {
     expect(result.current.activeEvent!.bidders.length).toBeGreaterThan(0);
   });
 });
+
+describe('auto-clear settings', () => {
+  it('defaults new events to auto-clear disabled with a 20 second delay', () => {
+    const { result } = renderHook(() => useApp(), { wrapper });
+    act(() => {
+      result.current.newEvent('Event', false);
+    });
+    expect(result.current.activeEvent!.autoClearEnabled).toBe(false);
+    expect(result.current.activeEvent!.autoClearSeconds).toBe(20);
+  });
+
+  it('toggles auto-clear on and off', () => {
+    const { result } = renderHook(() => useApp(), { wrapper });
+    act(() => {
+      result.current.newEvent('Event', false);
+    });
+
+    act(() => {
+      result.current.setAutoClearEnabled(true);
+    });
+    expect(result.current.activeEvent!.autoClearEnabled).toBe(true);
+
+    act(() => {
+      result.current.setAutoClearEnabled(false);
+    });
+    expect(result.current.activeEvent!.autoClearEnabled).toBe(false);
+  });
+
+  it('updates the auto-clear delay, rounding and clamping to at least 1 second', () => {
+    const { result } = renderHook(() => useApp(), { wrapper });
+    act(() => {
+      result.current.newEvent('Event', false);
+    });
+
+    act(() => {
+      result.current.setAutoClearSeconds(45.6);
+    });
+    expect(result.current.activeEvent!.autoClearSeconds).toBe(46);
+
+    act(() => {
+      result.current.setAutoClearSeconds(-5);
+    });
+    expect(result.current.activeEvent!.autoClearSeconds).toBe(1);
+  });
+});

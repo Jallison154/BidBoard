@@ -103,7 +103,7 @@ export function OperatorView() {
         consoleApi.cycleHistory(-1);
         return;
       }
-      if (!isMainInput && e.key.length === 1 && /[a-zA-Z0-9-]/.test(e.key)) {
+      if (!isMainInput && e.key.length === 1 && /[0-9]/.test(e.key)) {
         consoleApi.focusInput();
         consoleApi.setInputValue(consoleApi.inputValue + e.key);
       }
@@ -144,7 +144,7 @@ export function OperatorView() {
           </div>
         ) : (
           <>
-            <div className="flex w-[420px] shrink-0 flex-col gap-4 overflow-y-auto pr-1">
+            <div className="flex min-h-0 w-[420px] shrink-0 flex-col gap-4 overflow-y-auto pr-1">
               <ApprovalRequestsPanel
                 requests={remote.status?.pendingRequests ?? []}
                 onApproveShow={(request) => {
@@ -161,6 +161,10 @@ export function OperatorView() {
                 console={consoleApi}
                 autoShow={activeEvent.autoShow}
                 onSetAutoShow={app.setAutoShow}
+                autoClearEnabled={activeEvent.autoClearEnabled ?? false}
+                autoClearSeconds={activeEvent.autoClearSeconds ?? 20}
+                onSetAutoClearEnabled={app.setAutoClearEnabled}
+                onSetAutoClearSeconds={app.setAutoClearSeconds}
                 onRequestClear={requestClear}
                 onRequestShowUnknown={requestShowUnknown}
               />
@@ -173,11 +177,11 @@ export function OperatorView() {
               />
             </div>
 
-            <div className="flex w-[320px] shrink-0 flex-col gap-4 overflow-y-auto pr-1">
+            <div className="flex min-h-0 w-[320px] shrink-0 flex-col">
               <RecentHistoryPanel history={sortedHistory} onRedisplay={consoleApi.redisplay} onClearHistory={app.clearHistory} />
             </div>
 
-            <div className="flex flex-1 flex-col gap-4 overflow-y-auto pr-1">
+            <div className="flex min-h-0 flex-1 flex-col">
               <BidderListPanel
                 bidders={activeEvent.bidders}
                 eventName={activeEvent.name}
