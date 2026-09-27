@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { v4 as uuidv4 } from 'uuid';
+import { getSocketUrl } from '../lib/socketUrl';
 import type {
   ClientToServerEvents,
+  RemoteCatalog,
   RemoteCurrentBidder,
   RemoteMode,
   RemotePermission,
@@ -51,11 +53,6 @@ function storeDeviceName(name: string): void {
   }
 }
 
-function getSocketUrl(): string {
-  const configuredPort = (import.meta.env.VITE_SOCKET_PORT as string | undefined) ?? '3001';
-  return `${window.location.protocol}//${window.location.hostname}:${configuredPort}`;
-}
-
 export interface RemoteSession {
   permission: RemotePermission;
   remoteMode: RemoteMode;
@@ -71,11 +68,13 @@ export function useRemoteConnection() {
   const [rejection, setRejection] = useState<string | null>(null);
   const [session, setSession] = useState<RemoteSession | null>(null);
   const [liveBidder, setLiveBidder] = useState<RemoteCurrentBidder | null>(null);
+  const [catalog, setCatalog] = useState<RemoteCatalog>({ bidders: [], history: [] });
   const [lastResult, setLastResult] = useState<SubmissionResult | null>(null);
 
   const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
   const pendingAuthRef = useRef<{ pin?: string; token?: string } | null>(null);
   const resultHandlersRef = useRef(new Map<string, (result: SubmissionResult) => void>());
+  const authenticatedRef = useRef(false);
 
   useEffect(() => {
     const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(getSocketUrl(), {
@@ -87,11 +86,17 @@ export function useRemoteConnection() {
 
     socket.on('connect', () => {
       setStatus('connected');
-      if (pendingAuthRef.current) {
-        socket.emit('remote:authenticate', { deviceId, deviceName, ...pendingAuthRef.current });
+      const scannedToken = new URLSearchParams(window.location.search).get('token');
+      const auth = pendingAuthRef.current ?? (scannedToken ? { token: scannedToken } : null);
+      if (auth) {
+        pendingAuthRef.current = auth;
+        socket.emit('remote:authenticate', { deviceId, deviceName, ...auth });
+      } else {
+        socket.emit('remote:authenticate', { deviceId, deviceName });
       }
     });
     socket.on('disconnect', () => {
+      authenticatedRef.current = false;
       setAuthenticated(false);
       setStatus('reconnecting');
     });
@@ -99,6 +104,7 @@ export function useRemoteConnection() {
     socket.on('connect_error', () => setStatus('disconnected'));
 
     socket.on('remote:authenticated', (payload) => {
+      authenticatedRef.current = true;
       setAuthenticated(true);
       setRejection(null);
       setSession({
@@ -110,12 +116,29 @@ export function useRemoteConnection() {
       setLiveBidder(payload.liveBidder);
     });
 
-    socket.on('remote:rejected', ({ reason }) => {
+    let rememberedRetried = false;
+    let rememberedRetryTimer: number | null = null;
+
+    socket.on('remote:rejected', ({ reason, code }) => {
+      if (code === 'not-remembered') {
+        if (!pendingAuthRef.current && !rememberedRetried) {
+          rememberedRetried = true;
+          rememberedRetryTimer = window.setTimeout(() => {
+            if (!authenticatedRef.current && socket.connected && !pendingAuthRef.current) {
+              socket.emit('remote:authenticate', { deviceId, deviceName });
+            }
+          }, 2000);
+        }
+        return;
+      }
+      if (code === 'forgotten') pendingAuthRef.current = null;
+      authenticatedRef.current = false;
       setAuthenticated(false);
       setRejection(reason);
     });
 
     socket.on('bidder:liveChanged', (payload) => setLiveBidder(payload));
+    socket.on('remote:catalog', (payload) => setCatalog(payload));
 
     socket.on('remote:submissionResult', (result) => {
       setLastResult(result);
@@ -133,6 +156,7 @@ export function useRemoteConnection() {
     }, 5000);
 
     return () => {
+      if (rememberedRetryTimer) window.clearTimeout(rememberedRetryTimer);
       window.clearInterval(heartbeat);
       socket.disconnect();
     };
@@ -161,6 +185,7 @@ export function useRemoteConnection() {
 
   const requestClear = useCallback(() => {
     const requestId = uuidv4();
+    setLiveBidder(null);
     socketRef.current?.emit('remote:clearRequest', { requestId });
   }, []);
 
@@ -173,6 +198,7 @@ export function useRemoteConnection() {
     rejection,
     session,
     liveBidder,
+    catalog,
     lastResult,
     connect,
     submitBidder,

@@ -78,6 +78,14 @@ export interface RemoteAuthPayload {
   token?: string;
 }
 
+/** A phone or iPad that has already joined this event and may reconnect without the PIN. */
+export interface RememberedDevice {
+  id: string;
+  name: string;
+  permission: RemotePermission;
+  rememberedAt: number;
+}
+
 export interface RemoteAuthenticatedPayload {
   remoteId: string;
   permission: RemotePermission;
@@ -87,12 +95,35 @@ export interface RemoteAuthenticatedPayload {
   liveBidder: RemoteCurrentBidder | null;
 }
 
+/** Bidder numbers and names the operator shares so a remote can label what is typed. */
+export interface RemoteCatalogBidder {
+  number: string;
+  displayName: string;
+}
+
+/** A shown bidder, newest first, for the iPad entered list. */
+export interface RemoteCatalogHistoryEntry {
+  id: string;
+  bidderNumber: string;
+  displayName: string;
+  displayedAt: number;
+}
+
+export interface RemoteCatalog {
+  bidders: RemoteCatalogBidder[];
+  history: RemoteCatalogHistoryEntry[];
+  /** When true, phone and tablet number fields also accept letters. */
+  allowLetterNumbers?: boolean;
+}
+
 export interface OperatorUpdateSettingsPayload {
   remoteAccessEnabled?: boolean;
   acceptingNewConnections?: boolean;
   remoteMode?: RemoteMode;
   allowRemoteClear?: boolean;
   eventName?: string;
+  /** Stable code for the open event. The printed QR uses this and keeps working for that event. */
+  joinToken?: string;
 }
 
 export interface LookupRequestPayload {
@@ -120,6 +151,9 @@ export interface ClientToServerEvents {
   'operator:disconnectRemote': (payload: { remoteId: string }) => void;
   'operator:disconnectAll': () => void;
   'operator:updateRemotePermission': (payload: { remoteId: string; permission: RemotePermission }) => void;
+  'operator:syncCatalog': (payload: RemoteCatalog) => void;
+  'operator:setRememberedDevices': (payload: { enabled: boolean; devices: RememberedDevice[] }) => void;
+  'operator:forgetDevice': (payload: { deviceId: string }) => void;
 
   'remote:authenticate': (payload: RemoteAuthPayload) => void;
   'remote:submitBidder': (payload: { requestId: string; bidderNumber: string }) => void;
@@ -140,10 +174,12 @@ export interface ServerToClientEvents {
   /** Tell the operator to clear its local display in response to a permitted remote clear request. */
   'operator:commandClear': () => void;
   'operator:approvalRequest': (payload: PendingRequestInfo) => void;
+  'operator:deviceRemembered': (payload: RememberedDevice) => void;
   'remote:authenticated': (payload: RemoteAuthenticatedPayload) => void;
-  'remote:rejected': (payload: { reason: string }) => void;
+  'remote:rejected': (payload: { reason: string; code?: 'not-remembered' | 'forgotten' }) => void;
   'remote:submissionResult': (payload: SubmissionResult) => void;
   'bidder:liveChanged': (payload: RemoteCurrentBidder | null) => void;
+  'remote:catalog': (payload: RemoteCatalog) => void;
   'remotes:listChanged': (remotes: RemoteDeviceInfo[]) => void;
   error: (payload: { message: string }) => void;
 }

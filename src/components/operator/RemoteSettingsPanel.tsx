@@ -1,8 +1,11 @@
-import type { RemoteMode, RemotePermission, ServerStatus } from '../../shared/socketTypes';
+import type { RememberedDevice, RemoteMode, RemotePermission, ServerStatus } from '../../shared/socketTypes';
 
 interface RemoteSettingsPanelProps {
   serverOnline: boolean;
   status: ServerStatus | null;
+  rememberedDevices: RememberedDevice[];
+  rememberDevices: boolean;
+  onForgetDevice: (deviceId: string) => void;
   onToggleEnabled: (enabled: boolean) => void;
   onToggleAccepting: (accepting: boolean) => void;
   onSetMode: (mode: RemoteMode) => void;
@@ -14,9 +17,9 @@ interface RemoteSettingsPanelProps {
 }
 
 const MODES: { value: RemoteMode; label: string; blurb: string }[] = [
-  { value: 'approval', label: 'Approval Required', blurb: 'Safest. The operator must approve every remote request before it goes live.' },
-  { value: 'preview', label: 'Send to Preview', blurb: 'Remote submissions stage into the operator preview; the operator presses Show.' },
   { value: 'direct', label: 'Direct Show', blurb: 'A valid bidder number from the remote goes live immediately.' },
+  { value: 'preview', label: 'Send to Preview', blurb: 'Remote submissions stage into the operator preview; the operator presses Show.' },
+  { value: 'approval', label: 'Approval Required', blurb: 'The operator must approve every remote request before it goes live.' },
 ];
 
 const PERMISSIONS: { value: RemotePermission; label: string }[] = [
@@ -25,13 +28,56 @@ const PERMISSIONS: { value: RemotePermission; label: string }[] = [
   { value: 'view-only', label: 'View Only' },
 ];
 
+function RememberedDevices({
+  devices,
+  enabled,
+  onForget,
+}: {
+  devices: RememberedDevice[];
+  enabled: boolean;
+  onForget: (deviceId: string) => void;
+}) {
+  return (
+    <div className="rounded border border-white/10 p-3">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+        Remembered for this event ({devices.length})
+      </div>
+      <p className="mb-2 text-xs text-neutral-500">
+        {enabled
+          ? 'These devices reconnect without the PIN while this event is open.'
+          : 'Remembering is off in Safety, so these devices enter the PIN to join.'}
+      </p>
+      {devices.length === 0 ? (
+        <p className="text-sm text-neutral-500">No devices remembered yet.</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {devices.map((device) => (
+            <li key={device.id} className="flex h-12 items-center justify-between gap-2 rounded border border-white/5 px-2">
+              <span className="min-w-0 truncate text-sm font-semibold text-white">{device.name}</span>
+              <button
+                type="button"
+                onClick={() => onForget(device.id)}
+                className="h-8 shrink-0 rounded border border-white/15 px-2 text-xs text-neutral-300 hover:bg-white/5"
+              >
+                Forget
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function RemoteSettingsPanel({
   serverOnline,
   status,
+  rememberedDevices,
+  rememberDevices,
+  onForgetDevice,
   onToggleEnabled,
   onToggleAccepting,
   onSetMode,
-  onSetAllowClear,
   onRegeneratePin,
   onDisconnectRemote,
   onDisconnectAll,
@@ -46,9 +92,10 @@ export function RemoteSettingsPanel({
           <code className="rounded bg-black/40 px-1">npm run dev:all</code> during development).
         </p>
         <p className="text-xs text-neutral-500">
-          Everything else in BidBoard — the bidder list, the operator console, and the audience display — works
+          Everything else in BidBoard — the bidder list, the operator console, and the full screen display — works
           normally without this server.
         </p>
+        <RememberedDevices devices={rememberedDevices} enabled={rememberDevices} onForget={onForgetDevice} />
       </div>
     );
   }
@@ -86,9 +133,9 @@ export function RemoteSettingsPanel({
               </button>
             </div>
             <div>
-              <div className="text-xs text-neutral-400">Scan to connect</div>
+              <div className="text-xs text-neutral-400">Scan to connect. This code stays with the open event when the PIN changes.</div>
               {status.qrDataUrl ? (
-                <img src={status.qrDataUrl} alt="Remote connection QR code" className="mt-1 h-28 w-28 rounded bg-white p-1" />
+                <img src={status.qrDataUrl} alt="Remote connection QR code" className="mt-1 h-40 w-40 rounded bg-white p-1" />
               ) : (
                 <p className="text-xs text-neutral-500">No local network address detected.</p>
               )}
@@ -107,6 +154,7 @@ export function RemoteSettingsPanel({
             <div className="mt-1">
               Connected remotes: <span className="text-neutral-200">{status.remotes.length}</span>
             </div>
+            <div className="mt-1">A phone opens the keypad. A larger screen opens the tablet view. Either device can switch.</div>
           </div>
 
           <label className="flex items-center justify-between rounded border border-white/10 p-3 text-sm text-neutral-300">
@@ -138,10 +186,9 @@ export function RemoteSettingsPanel({
             </div>
           </div>
 
-          <label className="flex items-center justify-between rounded border border-white/10 p-3 text-sm text-neutral-300">
-            Allow Operator Remote devices to clear the display
-            <input type="checkbox" checked={status.allowRemoteClear} onChange={(e) => onSetAllowClear(e.target.checked)} />
-          </label>
+          <p className="rounded border border-white/10 p-3 text-sm text-neutral-400">
+            The Clear key on a phone clears the full screen display. A view-only phone cannot clear it.
+          </p>
 
           <div className="rounded border border-white/10 p-3">
             <div className="mb-2 flex items-center justify-between">
@@ -196,6 +243,7 @@ export function RemoteSettingsPanel({
               </ul>
             )}
           </div>
+          <RememberedDevices devices={rememberedDevices} enabled={rememberDevices} onForget={onForgetDevice} />
         </>
       )}
     </div>

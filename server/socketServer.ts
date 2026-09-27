@@ -42,7 +42,7 @@ export function attachSocketServer(io: IOServer, options: AttachOptions) {
   async function buildStatus(): Promise<ServerStatus> {
     const localIps = getLocalIPv4Addresses();
     const primaryIp = localIps[0] ?? null;
-    const remoteUrl = primaryIp ? `http://${primaryIp}:${options.port}/remote?token=${state.currentToken}` : null;
+    const remoteUrl = primaryIp ? `http://${primaryIp}:${options.port}/remote?token=${state.qrToken}` : null;
     const qrDataUrl = remoteUrl ? await generateQrDataUrl(remoteUrl) : null;
     return {
       remoteAccessEnabled: state.remoteAccessEnabled,
@@ -86,6 +86,10 @@ export function attachSocketServer(io: IOServer, options: AttachOptions) {
     socket.on('operator:hello', () => {
       data.role = 'operator';
       state.operatorSocketId = socket.id;
+      // Every open operator console joins this room. A clear has to reach all
+      // of them: the display channel is shared, and a single stored socket id
+      // can point at a tab that is no longer the one driving the screen.
+      socket.join('operators');
       void pushStatusToOperator();
     });
 
@@ -96,6 +100,7 @@ export function attachSocketServer(io: IOServer, options: AttachOptions) {
       if (payload.remoteMode !== undefined) state.remoteMode = payload.remoteMode as RemoteMode;
       if (payload.allowRemoteClear !== undefined) state.allowRemoteClear = payload.allowRemoteClear;
       if (payload.eventName !== undefined) state.eventName = payload.eventName;
+      if (payload.joinToken !== undefined) state.setEventJoinToken(payload.joinToken);
       void pushStatusToOperator();
     });
 
@@ -127,6 +132,11 @@ export function attachSocketServer(io: IOServer, options: AttachOptions) {
       if (data.role !== 'operator') return;
       const record = state.remotes.get(remoteId);
       if (record) record.permission = permission;
+      const remembered = state.rememberedDevices.get(remoteId);
+      if (remembered) {
+        remembered.permission = permission;
+        if (state.operatorSocketId) io.to(state.operatorSocketId).emit('operator:deviceRemembered', remembered);
+      }
       void pushStatusToOperator();
     });
 
@@ -241,8 +251,9 @@ export function attachSocketServer(io: IOServer, options: AttachOptions) {
         socket.emit('remote:rejected', { reason: 'Remote access is currently turned off.' });
         return;
       }
-      const isReturningDevice = state.remotes.has(deviceId);
-      if (!state.acceptingNewConnections && !isReturningDevice) {
+      const remembered = state.rememberDevices ? state.rememberedDevices.get(deviceId) : undefined;
+      const isKnown = state.remotes.has(deviceId) || !!remembered;
+      if (!state.acceptingNewConnections && !isKnown) {
         socket.emit('remote:rejected', { reason: 'The operator has paused new remote connections.' });
         return;
       }
@@ -251,9 +262,25 @@ export function attachSocketServer(io: IOServer, options: AttachOptions) {
       let authenticated = false;
 
       if (token) {
-        authenticated = state.isTokenValid(token);
-      } else if (pin) {
-        authenticated = state.isPinValid(pin);
+        if (!state.isTokenValid(token)) {
+          socket.emit('remote:rejected', {
+            reason: state.eventJoinToken
+              ? 'This code is for a different event. Open that event on the operator, then scan its code.'
+              : 'This QR code is no longer valid. Scan the code on the operator screen again.',
+          });
+          return;
+        }
+        authenticated = true;
+      } else if (pin && state.isPinValid(pin)) {
+        authenticated = true;
+      } else if (remembered) {
+        authenticated = true;
+      } else if (!pin && !token) {
+        socket.emit('remote:rejected', {
+          reason: 'This device has not joined this event yet.',
+          code: 'not-remembered',
+        });
+        return;
       }
 
       if (!authenticated) {
@@ -269,10 +296,21 @@ export function attachSocketServer(io: IOServer, options: AttachOptions) {
       }
 
       pinLimiter.reset(ip);
-      const record = state.registerOrUpdateRemote(deviceId, deviceName, socket.id);
+      const record = state.registerOrUpdateRemote(deviceId, deviceName, socket.id, remembered?.permission);
       data.role = 'remote';
       data.deviceId = deviceId;
       socket.join('remotes');
+
+      if (state.rememberDevices) {
+        const saved = {
+          id: record.id,
+          name: record.name,
+          permission: record.permission,
+          rememberedAt: Date.now(),
+        };
+        state.rememberedDevices.set(record.id, saved);
+        if (state.operatorSocketId) io.to(state.operatorSocketId).emit('operator:deviceRemembered', saved);
+      }
 
       socket.emit('remote:authenticated', {
         remoteId: record.id,
@@ -282,7 +320,60 @@ export function attachSocketServer(io: IOServer, options: AttachOptions) {
         eventName: state.eventName,
         liveBidder: state.liveBidder,
       });
+      socket.emit('remote:catalog', state.catalog);
       void pushStatusToOperator();
+    });
+
+    socket.on('operator:setRememberedDevices', ({ enabled, devices }) => {
+      if (data.role !== 'operator') return;
+      const next = new Map<string, (typeof devices)[number]>();
+      for (const device of (devices ?? []).slice(0, 100)) {
+        if (!device?.id) continue;
+        next.set(String(device.id), {
+          id: String(device.id),
+          name: String(device.name ?? 'Remote').slice(0, 80),
+          permission: device.permission ?? 'keypad-only',
+          rememberedAt: Number(device.rememberedAt) || Date.now(),
+        });
+      }
+      state.rememberDevices = enabled;
+      state.rememberedDevices.clear();
+      if (enabled) {
+        for (const [id, device] of next) state.rememberedDevices.set(id, device);
+      }
+      void pushStatusToOperator();
+    });
+
+    socket.on('operator:forgetDevice', ({ deviceId }) => {
+      if (data.role !== 'operator') return;
+      state.rememberedDevices.delete(deviceId);
+      const remote = state.remotes.get(deviceId);
+      const remoteSocket = remote?.socketId ? io.sockets.sockets.get(remote.socketId) : undefined;
+      remoteSocket?.emit('remote:rejected', {
+        reason: 'This device was removed from the event. Enter the PIN to join again.',
+        code: 'forgotten',
+      });
+      remoteSocket?.disconnect(true);
+      if (remote) state.remotes.delete(deviceId);
+      void pushStatusToOperator();
+    });
+
+    socket.on('operator:syncCatalog', (payload) => {
+      if (data.role !== 'operator') return;
+      state.catalog = {
+        bidders: (payload.bidders ?? []).slice(0, 5000).map((bidder) => ({
+          number: String(bidder.number ?? '').slice(0, 32),
+          displayName: String(bidder.displayName ?? '').slice(0, 200),
+        })),
+        history: (payload.history ?? []).slice(0, 20).map((entry) => ({
+          id: String(entry.id ?? ''),
+          bidderNumber: String(entry.bidderNumber ?? '').slice(0, 32),
+          displayName: String(entry.displayName ?? '').slice(0, 200),
+          displayedAt: Number(entry.displayedAt) || 0,
+        })),
+        allowLetterNumbers: payload.allowLetterNumbers === true,
+      };
+      io.to('remotes').emit('remote:catalog', state.catalog);
     });
 
     socket.on('remote:submitBidder', ({ requestId, bidderNumber }) => {
@@ -330,17 +421,17 @@ export function attachSocketServer(io: IOServer, options: AttachOptions) {
       io.to(state.operatorSocketId).emit('operator:lookupRequest', { requestId, bidderNumber });
     });
 
-    socket.on('remote:clearRequest', ({ requestId }) => {
+    socket.on('remote:clearRequest', () => {
       if (data.role !== 'remote' || !data.deviceId) return;
       const remote = state.remotes.get(data.deviceId);
-      if (!remote || remote.permission !== 'operator-remote' || !state.allowRemoteClear) {
+      if (!remote || remote.permission === 'view-only') {
         socket.emit('error', { message: 'This remote is not permitted to clear the display.' });
         return;
       }
-      if (state.operatorSocketId) {
-        io.to(state.operatorSocketId).emit('operator:commandClear');
-      }
-      void requestId; // acknowledged implicitly via the subsequent bidder:liveChanged(null) broadcast
+      state.liveBidder = null;
+      io.to('remotes').emit('bidder:liveChanged', null);
+      io.to('operators').emit('operator:commandClear');
+      void pushStatusToOperator();
     });
 
     socket.on('remote:heartbeat', () => {
@@ -349,7 +440,9 @@ export function attachSocketServer(io: IOServer, options: AttachOptions) {
 
     socket.on('disconnect', () => {
       if (data.role === 'operator' && state.operatorSocketId === socket.id) {
-        state.operatorSocketId = null;
+        const remaining = io.sockets.adapter.rooms.get('operators');
+        const next = remaining ? [...remaining].find((id) => id !== socket.id) : undefined;
+        state.operatorSocketId = next ?? null;
       }
       if (data.role === 'remote') {
         state.markSocketDisconnected(socket.id);

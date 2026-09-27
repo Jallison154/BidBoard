@@ -36,6 +36,18 @@ describe('ServerState PIN and token handling', () => {
     const state = new ServerState();
     expect(state.isTokenValid(state.currentToken)).toBe(true);
   });
+
+  it('locks the QR to an event token that survives a PIN change', () => {
+    const state = new ServerState();
+    state.setEventJoinToken('event-code-abc');
+    const pinBefore = state.pin;
+    state.regeneratePin();
+    expect(state.pin).not.toBe(pinBefore);
+    expect(state.qrToken).toBe('event-code-abc');
+    expect(state.isTokenValid('event-code-abc')).toBe(true);
+    expect(state.isTokenValid(state.currentToken)).toBe(false);
+    expect(state.isTokenValid('someone-elses-event')).toBe(false);
+  });
 });
 
 describe('ServerState remote registry', () => {

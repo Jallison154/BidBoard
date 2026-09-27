@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import type { BidBoardEvent } from '../../types';
+import { saveEventFile } from '../../lib/eventFile';
 import { Modal } from '../common/Modal';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 
 interface EventManagerProps {
   events: BidBoardEvent[];
   activeEventId: string | null;
-  onNew: (name: string, withDemoBidders: boolean) => void;
+  onNew: (name: string, withDemoBidders: boolean) => BidBoardEvent;
   onSwitch: (id: string) => void;
   onRename: (id: string, name: string) => void;
   onDuplicate: (id: string) => void;
@@ -31,6 +32,7 @@ export function EventManager({
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [newWithDemo, setNewWithDemo] = useState(false);
+  const [saveFile, setSaveFile] = useState(true);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export function EventManager({
             New Event
           </button>
           <label className="cursor-pointer rounded border border-white/15 px-3 py-1.5 text-sm font-semibold text-neutral-200 hover:bg-white/5">
-            Import Event File
+            Open Event File
             <input
               type="file"
               accept=".json,.bidboard.json,application/json"
@@ -73,10 +75,12 @@ export function EventManager({
             onSubmit={(e) => {
               e.preventDefault();
               if (!newName.trim()) return;
-              onNew(newName.trim(), newWithDemo);
+              const event = onNew(newName.trim(), newWithDemo);
+              const shouldSave = saveFile;
               setCreating(false);
               setNewName('');
               setNewWithDemo(false);
+              if (shouldSave) void saveEventFile(event);
             }}
             className="flex flex-col gap-2 rounded border border-white/10 bg-black/30 p-3"
           >
@@ -90,6 +94,10 @@ export function EventManager({
             <label className="flex items-center gap-2 text-xs text-neutral-300">
               <input type="checkbox" checked={newWithDemo} onChange={(e) => setNewWithDemo(e.target.checked)} />
               Start with demo bidder list
+            </label>
+            <label className="flex items-center gap-2 text-xs text-neutral-300">
+              <input type="checkbox" checked={saveFile} onChange={(e) => setSaveFile(e.target.checked)} />
+              Save a file you can copy to another computer
             </label>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setCreating(false)} className="rounded px-2 py-1 text-xs text-neutral-400 hover:bg-white/5">
@@ -163,7 +171,7 @@ export function EventManager({
                     onClick={() => onExport(event.id)}
                     className="rounded border border-white/15 px-2 py-1 text-neutral-300 hover:bg-white/5"
                   >
-                    Export
+                    Save File
                   </button>
                   <button
                     type="button"

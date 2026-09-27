@@ -1,8 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { v4 as uuid } from 'uuid';
 import type { Bidder, BidBoardEvent, BidBoardEventFile, DisplayPresetId, DisplaySettings, SafetySettings } from '../types';
+import type { RememberedDevice } from '../shared/socketTypes';
 import { STORAGE_KEYS, readJSON, writeJSON } from '../lib/storage';
-import { DISPLAY_PRESETS, createEvent, makeBidder } from '../lib/events';
+import { DISPLAY_PRESETS, createEvent, makeBidder, newJoinToken } from '../lib/events';
+import { saveEventFile } from '../lib/eventFile';
 import { normalizeBidderNumber } from '../lib/normalize';
 
 interface EventsState {
@@ -15,7 +17,7 @@ interface AppContextValue {
   allEvents: BidBoardEvent[];
   hasLaunched: boolean;
   markLaunched: () => void;
-  newEvent: (name: string, withDemoBidders?: boolean) => string;
+  newEvent: (name: string, withDemoBidders?: boolean) => BidBoardEvent;
   switchEvent: (id: string) => void;
   renameEvent: (id: string, name: string) => void;
   duplicateEvent: (id: string) => void;
@@ -30,6 +32,8 @@ interface AppContextValue {
   updateDisplaySettings: (patch: Partial<DisplaySettings>) => void;
   applyPreset: (presetId: Exclude<DisplayPresetId, 'custom'>) => void;
   updateSafety: (patch: Partial<SafetySettings>) => void;
+  rememberDevice: (device: RememberedDevice) => void;
+  forgetDevice: (deviceId: string) => void;
   setAutoShow: (value: boolean) => void;
   setAutoClearEnabled: (value: boolean) => void;
   setAutoClearSeconds: (seconds: number) => void;
@@ -44,8 +48,22 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+function ensureJoinTokens(events: Record<string, BidBoardEvent>): Record<string, BidBoardEvent> {
+  let changed = false;
+  const next: Record<string, BidBoardEvent> = {};
+  for (const [id, event] of Object.entries(events)) {
+    if (event.joinToken) {
+      next[id] = event;
+      continue;
+    }
+    changed = true;
+    next[id] = { ...event, joinToken: newJoinToken() };
+  }
+  return changed ? next : events;
+}
+
 function loadInitialState(): EventsState {
-  const events = readJSON<Record<string, BidBoardEvent>>(STORAGE_KEYS.events, {});
+  const events = ensureJoinTokens(readJSON<Record<string, BidBoardEvent>>(STORAGE_KEYS.events, {}));
   const activeEventId = readJSON<string | null>(STORAGE_KEYS.activeEventId, null);
   return { events, activeEventId: activeEventId && events[activeEventId] ? activeEventId : null };
 }
@@ -61,6 +79,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     writeJSON(STORAGE_KEYS.activeEventId, state.activeEventId);
   }, [state.activeEventId]);
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== STORAGE_KEYS.events && event.key !== STORAGE_KEYS.activeEventId) return;
+      setState(loadInitialState());
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   const markLaunched = useCallback(() => {
     setHasLaunched(true);
@@ -84,7 +111,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       events: { ...prev.events, [event.id]: event },
       activeEventId: event.id,
     }));
-    return event.id;
+    return event;
   }, []);
 
   const switchEvent = useCallback((id: string) => {
@@ -108,6 +135,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...source,
         id: uuid(),
         name: `${source.name} (Copy)`,
+        joinToken: newJoinToken(),
+        rememberedDevices: [],
         createdAt: now,
         updatedAt: now,
       };
@@ -130,14 +159,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     (id: string) => {
       const event = state.events[id];
       if (!event) return;
-      const file: BidBoardEventFile = { fileFormat: 'bidboard-event', formatVersion: 1, event };
-      const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${event.name.replace(/[^a-z0-9-_ ]/gi, '').trim() || 'event'}.bidboard.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      void saveEventFile(event);
     },
     [state.events],
   );
@@ -150,7 +172,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return { ok: false, error: 'This file is not a valid BidBoard event export.' };
       }
       const now = Date.now();
-      const event: BidBoardEvent = { ...parsed.event, id: uuid(), updatedAt: now };
+      const event: BidBoardEvent = {
+        ...parsed.event,
+        id: uuid(),
+        joinToken: parsed.event.joinToken || newJoinToken(),
+        updatedAt: now,
+      };
       setState((prev) => ({ events: { ...prev.events, [event.id]: event }, activeEventId: event.id }));
       return { ok: true };
     } catch {
@@ -225,6 +252,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [patchActiveEvent],
   );
 
+  const rememberDevice = useCallback(
+    (device: RememberedDevice) => {
+      patchActiveEvent((event) => {
+        if (event.safety.rememberDevices === false) return {};
+        const list = event.rememberedDevices ?? [];
+        const existing = list.find((item) => item.id === device.id);
+        if (existing && existing.name === device.name && existing.permission === device.permission) return {};
+        const next = existing
+          ? list.map((item) => (item.id === device.id ? { ...item, ...device } : item))
+          : [...list, device];
+        return { rememberedDevices: next };
+      });
+    },
+    [patchActiveEvent],
+  );
+
+  const forgetDevice = useCallback(
+    (deviceId: string) => {
+      patchActiveEvent((event) => ({
+        rememberedDevices: (event.rememberedDevices ?? []).filter((device) => device.id !== deviceId),
+      }));
+    },
+    [patchActiveEvent],
+  );
+
   const setAutoShow = useCallback(
     (value: boolean) => {
       patchActiveEvent(() => ({ autoShow: value }));
@@ -294,6 +346,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateDisplaySettings,
     applyPreset,
     updateSafety,
+    rememberDevice,
+    forgetDevice,
     setAutoShow,
     setAutoClearEnabled,
     setAutoClearSeconds,

@@ -6,7 +6,10 @@ import { RemoteApp } from './components/remote/RemoteApp';
 function App() {
   const params = new URLSearchParams(window.location.search);
   const view = params.get('view');
-  const isRemote = window.location.pathname.replace(/\/+$/, '') === '/remote' || view === 'remote';
+  const isAudience = view === 'audience';
+  const isRemote =
+    !isAudience &&
+    (window.location.pathname.replace(/\/+$/, '') === '/remote' || view === 'remote' || view === 'ipad');
 
   if (isRemote) {
     // The remote page talks to the local server over Socket.IO and does not
@@ -14,10 +17,13 @@ function App() {
     return <RemoteApp />;
   }
 
-  const isAudience = view === 'audience';
   const embedded = params.get('embedded') === '1';
 
-  return <AppProvider>{isAudience ? <AudienceView embedded={embedded} /> : <OperatorView />}</AppProvider>;
+  return (
+    <AppProvider>
+      {isAudience ? <AudienceView embedded={embedded} /> : <OperatorView />}
+    </AppProvider>
+  );
 }
 
 export default App;

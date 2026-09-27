@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Bidder } from '../../types';
 import { searchBiddersByText } from '../../lib/bidders';
+import { filterBidderNumber } from '../../lib/normalize';
 import { downloadBidderListCsv } from '../../lib/exportCsv';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 
@@ -13,9 +14,19 @@ interface BidderListPanelProps {
   onDelete: (id: string) => void;
   onOpenImport: () => void;
   onRemoveAll: () => void;
+  onPreview: (bidder: Bidder) => void;
+  allowLetterNumbers: boolean;
 }
 
-function AddBidderForm({ onAdd, onDone }: { onAdd: BidderListPanelProps['onAdd']; onDone: () => void }) {
+function AddBidderForm({
+  onAdd,
+  onDone,
+  allowLetterNumbers,
+}: {
+  onAdd: BidderListPanelProps['onAdd'];
+  onDone: () => void;
+  allowLetterNumbers: boolean;
+}) {
   const [number, setNumber] = useState('');
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
@@ -34,7 +45,8 @@ function AddBidderForm({ onAdd, onDone }: { onAdd: BidderListPanelProps['onAdd']
         <input
           autoFocus
           value={number}
-          onChange={(e) => setNumber(e.target.value)}
+          onChange={(e) => setNumber(filterBidderNumber(e.target.value, allowLetterNumbers))}
+          inputMode={allowLetterNumbers ? 'text' : 'numeric'}
           placeholder="Number"
           className="w-24 rounded border border-white/15 bg-black/40 px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500"
         />
@@ -67,10 +79,12 @@ function EditBidderRow({
   bidder,
   onUpdate,
   onDone,
+  allowLetterNumbers,
 }: {
   bidder: Bidder;
   onUpdate: BidderListPanelProps['onUpdate'];
   onDone: () => void;
+  allowLetterNumbers: boolean;
 }) {
   const [number, setNumber] = useState(bidder.number);
   const [name, setName] = useState(bidder.displayName);
@@ -88,7 +102,8 @@ function EditBidderRow({
       <div className="flex gap-2">
         <input
           value={number}
-          onChange={(e) => setNumber(e.target.value)}
+          onChange={(e) => setNumber(filterBidderNumber(e.target.value, allowLetterNumbers))}
+          inputMode={allowLetterNumbers ? 'text' : 'numeric'}
           className="w-24 rounded border border-white/15 bg-black/40 px-2 py-1.5 text-sm text-white outline-none focus:border-blue-500"
         />
         <input
@@ -124,6 +139,8 @@ export function BidderListPanel({
   onDelete,
   onOpenImport,
   onRemoveAll,
+  onPreview,
+  allowLetterNumbers,
 }: BidderListPanelProps) {
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState(false);
@@ -136,7 +153,7 @@ export function BidderListPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 rounded-lg border border-white/10 bg-neutral-900/60 p-4">
-      <div className="flex shrink-0 items-center justify-between">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
           Bidder List ({bidders.length})
         </h3>
@@ -183,7 +200,7 @@ export function BidderListPanel({
       {!locked &&
         (adding ? (
           <div className="shrink-0">
-            <AddBidderForm onAdd={onAdd} onDone={() => setAdding(false)} />
+            <AddBidderForm onAdd={onAdd} onDone={() => setAdding(false)} allowLetterNumbers={allowLetterNumbers} />
           </div>
         ) : (
           <button
@@ -200,38 +217,52 @@ export function BidderListPanel({
         {filtered.map((b) =>
           editingId === b.id ? (
             <li key={b.id}>
-              <EditBidderRow bidder={b} onUpdate={onUpdate} onDone={() => setEditingId(null)} />
+              <EditBidderRow
+                bidder={b}
+                onUpdate={onUpdate}
+                onDone={() => setEditingId(null)}
+                allowLetterNumbers={allowLetterNumbers}
+              />
             </li>
           ) : (
             <li
               key={b.id}
               className="flex items-center justify-between gap-2 rounded border border-white/5 px-3 py-2 hover:border-white/15"
             >
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2">
                   <span className="font-bold text-white">{b.number}</span>
                   <span className="truncate text-sm text-neutral-300">{b.displayName || <em>no name</em>}</span>
                 </div>
                 {b.company && <span className="text-xs text-neutral-500">{b.company}</span>}
               </div>
-              {!locked && (
-                <div className="flex shrink-0 gap-1 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setEditingId(b.id)}
-                    className="rounded border border-white/15 px-2 py-1 text-neutral-300 hover:bg-white/5"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDeleteId(b.id)}
-                    className="rounded border border-red-500/40 px-2 py-1 text-red-300 hover:bg-red-500/10"
-                  >
-                    Delete
-                  </button>
-                </div>
-              )}
+              <div className="flex shrink-0 gap-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => onPreview(b)}
+                  className="rounded border border-blue-500/40 px-2 py-1 font-semibold text-blue-300 hover:bg-blue-500/10"
+                >
+                  Preview
+                </button>
+                {!locked && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setEditingId(b.id)}
+                      className="rounded border border-white/15 px-2 py-1 text-neutral-300 hover:bg-white/5"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteId(b.id)}
+                      className="rounded border border-red-500/40 px-2 py-1 text-red-300 hover:bg-red-500/10"
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
+              </div>
             </li>
           ),
         )}

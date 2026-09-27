@@ -3,11 +3,14 @@ import { io, type Socket } from 'socket.io-client';
 import type {
   ClientToServerEvents,
   OperatorUpdateSettingsPayload,
+  RemoteCatalog,
   RemotePermission,
+  RememberedDevice,
   ServerStatus,
   ServerToClientEvents,
 } from '../shared/socketTypes';
-import type { AudienceCurrentBidder } from '../types';
+import { getSocketUrl } from '../lib/socketUrl';
+import type { AudienceCurrentBidder, Bidder, HistoryEntry } from '../types';
 
 export type LookupOutcome =
   | { result: 'unique'; displayName: string; company?: string }
@@ -17,15 +20,30 @@ export type LookupOutcome =
 interface UseRemoteServerParams {
   liveBidder: AudienceCurrentBidder | null;
   eventName: string;
+  joinToken: string;
+  bidders: Bidder[];
+  history: HistoryEntry[];
+  allowLetterNumbers: boolean;
+  rememberDevices: boolean;
+  rememberedDevices: RememberedDevice[];
+  onRememberDevice: (device: RememberedDevice) => void;
   lookupBidder: (query: string) => LookupOutcome;
   onRemoteShow: (bidderNumber: string, displayName: string, company: string | undefined) => void;
   onRemotePreview: (bidderNumber: string, displayName: string, company: string | undefined) => void;
   onRemoteClear: () => void;
 }
 
-function getSocketUrl(): string {
-  const configuredPort = (import.meta.env.VITE_SOCKET_PORT as string | undefined) ?? '3001';
-  return `${window.location.protocol}//${window.location.hostname}:${configuredPort}`;
+function toCatalog(bidders: Bidder[], history: HistoryEntry[], allowLetterNumbers: boolean): RemoteCatalog {
+  return {
+    bidders: bidders.map((bidder) => ({ number: bidder.number, displayName: bidder.displayName })),
+    history: history.map((entry) => ({
+      id: entry.id,
+      bidderNumber: entry.bidderNumber,
+      displayName: entry.displayName,
+      displayedAt: entry.displayedAt,
+    })),
+    allowLetterNumbers,
+  };
 }
 
 /** Connects the operator's browser to the local BidBoard remote-control
@@ -52,7 +70,14 @@ export function useRemoteServer(params: UseRemoteServerParams) {
     socket.on('connect', () => {
       setServerOnline(true);
       socket.emit('operator:hello');
-      socket.emit('operator:updateSettings', { eventName: paramsRef.current.eventName });
+      socket.emit('operator:updateSettings', {
+        eventName: paramsRef.current.eventName,
+        joinToken: paramsRef.current.joinToken,
+      });
+      socket.emit('operator:setRememberedDevices', {
+        enabled: paramsRef.current.rememberDevices,
+        devices: paramsRef.current.rememberedDevices,
+      });
     });
     socket.on('disconnect', () => setServerOnline(false));
     socket.on('connect_error', () => setServerOnline(false));
@@ -85,6 +110,10 @@ export function useRemoteServer(params: UseRemoteServerParams) {
       paramsRef.current.onRemoteClear();
     });
 
+    socket.on('operator:deviceRemembered', (device) => {
+      paramsRef.current.onRememberDevice(device);
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -103,8 +132,24 @@ export function useRemoteServer(params: UseRemoteServerParams) {
 
   useEffect(() => {
     if (!serverOnline) return;
-    socketRef.current?.emit('operator:updateSettings', { eventName: params.eventName });
-  }, [params.eventName, serverOnline]);
+    socketRef.current?.emit('operator:updateSettings', {
+      eventName: params.eventName,
+      joinToken: params.joinToken,
+    });
+  }, [params.eventName, params.joinToken, serverOnline]);
+
+  useEffect(() => {
+    if (!serverOnline) return;
+    socketRef.current?.emit('operator:syncCatalog', toCatalog(params.bidders, params.history, params.allowLetterNumbers));
+  }, [params.bidders, params.history, params.allowLetterNumbers, serverOnline]);
+
+  useEffect(() => {
+    if (!serverOnline) return;
+    socketRef.current?.emit('operator:setRememberedDevices', {
+      enabled: params.rememberDevices,
+      devices: params.rememberedDevices,
+    });
+  }, [params.rememberDevices, params.rememberedDevices, serverOnline]);
 
   const updateSettings = useCallback((patch: OperatorUpdateSettingsPayload) => {
     socketRef.current?.emit('operator:updateSettings', patch);
@@ -134,6 +179,10 @@ export function useRemoteServer(params: UseRemoteServerParams) {
     socketRef.current?.emit('operator:rejectRequest', { requestId });
   }, []);
 
+  const forgetRememberedDevice = useCallback((deviceId: string) => {
+    socketRef.current?.emit('operator:forgetDevice', { deviceId });
+  }, []);
+
   return {
     serverOnline,
     status,
@@ -144,5 +193,6 @@ export function useRemoteServer(params: UseRemoteServerParams) {
     updateRemotePermission,
     approveRequest,
     rejectRequest,
+    forgetRememberedDevice,
   };
 }

@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import type { HistoryEntry } from '../../types';
+import { downloadHistoryCsv, historyExportName } from '../../lib/exportCsv';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 
 interface RecentHistoryPanelProps {
   history: HistoryEntry[];
+  eventName: string;
   onRedisplay: (entry: HistoryEntry) => void;
   onClearHistory: () => void;
 }
@@ -12,21 +14,30 @@ function formatTime(ts: number): string {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-export function RecentHistoryPanel({ history, onRedisplay, onClearHistory }: RecentHistoryPanelProps) {
+export function RecentHistoryPanel({ history, eventName, onRedisplay, onClearHistory }: RecentHistoryPanelProps) {
   const [confirmClear, setConfirmClear] = useState(false);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 rounded-lg border border-white/10 bg-neutral-900/60 p-4">
-      <div className="flex shrink-0 items-center justify-between">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Recently Displayed</h3>
         {history.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setConfirmClear(true)}
-            className="text-xs text-neutral-500 hover:text-red-400"
-          >
-            Clear History
-          </button>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => downloadHistoryCsv(history, historyExportName(eventName))}
+              className="text-xs font-semibold text-neutral-300 hover:text-white"
+            >
+              Export
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmClear(true)}
+              className="text-xs text-neutral-500 hover:text-red-400"
+            >
+              Clear History
+            </button>
+          </div>
         )}
       </div>
 
@@ -39,10 +50,10 @@ export function RecentHistoryPanel({ history, onRedisplay, onClearHistory }: Rec
               key={entry.id}
               className="flex items-center justify-between gap-2 rounded border border-white/5 px-3 py-2 hover:border-white/15"
             >
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2">
                   <span className="font-bold text-white">{entry.bidderNumber}</span>
-                  <span className="truncate text-sm text-neutral-300">{entry.displayName || <em>no name</em>}</span>
+                  <span className="line-clamp-2 text-sm leading-5 text-neutral-300">{entry.displayName || <em>no name</em>}</span>
                 </div>
                 <span className="text-xs text-neutral-500">{formatTime(entry.displayedAt)}</span>
               </div>
@@ -61,7 +72,7 @@ export function RecentHistoryPanel({ history, onRedisplay, onClearHistory }: Rec
       {confirmClear && (
         <ConfirmDialog
           title="Clear recent history?"
-          message="This removes the recently-displayed list. It does not affect the bidder list or the audience display."
+          message="This removes the recently-displayed list. It does not affect the bidder list or the full screen display."
           confirmLabel="Clear History"
           danger
           onConfirm={() => {

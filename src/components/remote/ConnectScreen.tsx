@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import logo from '../../assets/bidboard-logo.png';
 import type { ConnectionStatus } from '../../hooks/useRemoteConnection';
+import type { CompanionLayout } from '../../lib/companionLayout';
+import { LayoutSwitch } from './LayoutSwitch';
 
 interface ConnectScreenProps {
   status: ConnectionStatus;
@@ -10,9 +12,21 @@ interface ConnectScreenProps {
   hasToken: boolean;
   onConnect: (auth: { pin?: string; token?: string }) => void;
   token: string | null;
+  layout: CompanionLayout;
+  onLayout: (layout: CompanionLayout) => void;
 }
 
-export function ConnectScreen({ status, rejection, deviceName, onSetDeviceName, hasToken, onConnect, token }: ConnectScreenProps) {
+export function ConnectScreen({
+  status,
+  rejection,
+  deviceName,
+  onSetDeviceName,
+  hasToken,
+  onConnect,
+  token,
+  layout,
+  onLayout,
+}: ConnectScreenProps) {
   const [pin, setPin] = useState('');
   const [nameDraft, setNameDraft] = useState(deviceName);
 
@@ -26,7 +40,7 @@ export function ConnectScreen({ status, rejection, deviceName, onSetDeviceName, 
   };
 
   return (
-    <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-6 bg-neutral-950 px-6 py-10 text-neutral-100">
+    <div className="fixed inset-0 flex flex-col items-center justify-center gap-6 overflow-hidden overscroll-none bg-neutral-950 px-6 py-10 text-neutral-100">
       <img src={logo} alt="BidBoard" className="h-12 w-auto" />
 
       <div className="flex w-full max-w-sm flex-col gap-4 rounded-lg border border-white/10 bg-neutral-900/60 p-5">
@@ -64,7 +78,14 @@ export function ConnectScreen({ status, rejection, deviceName, onSetDeviceName, 
           </label>
         )}
 
+        <div className="flex flex-col items-center gap-2">
+          <span className="text-xs text-neutral-400">This follows the screen size</span>
+          <LayoutSwitch layout={layout} onChange={onLayout} />
+        </div>
+
         {rejection && <p className="rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-center text-sm text-red-300">{rejection}</p>}
+
+        <p className="text-center text-xs text-neutral-500">A device that already joined this event reconnects on its own.</p>
 
         <button
           type="button"

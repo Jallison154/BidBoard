@@ -8,6 +8,7 @@ interface HeaderProps {
   onOpenSettings: () => void;
   onOpenEvents: () => void;
   onOpenHelp: () => void;
+  onOpenMobile: () => void;
 }
 
 export function Header({
@@ -18,9 +19,10 @@ export function Header({
   onOpenSettings,
   onOpenEvents,
   onOpenHelp,
+  onOpenMobile,
 }: HeaderProps) {
   return (
-    <header className="flex items-center justify-between border-b border-white/10 bg-neutral-950 px-5 py-3">
+    <header className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-white/10 bg-neutral-950 px-4 py-2">
       <div className="flex items-center gap-3">
         <img src={logo} alt="BidBoard" className="h-8 w-auto" />
         <div className="h-6 w-px bg-white/15" />
@@ -41,14 +43,21 @@ export function Header({
           </span>
         )}
         <span
-          className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+          className={`flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
             connected ? 'bg-green-500/15 text-green-400' : 'bg-neutral-700/40 text-neutral-400'
           }`}
           title={channelSupported ? undefined : 'This browser does not support live window messaging.'}
         >
           <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'bg-green-500' : 'bg-neutral-500'}`} />
-          Audience Display {connected ? 'Connected' : 'Not Connected'}
+          Full Screen Display {connected ? 'Connected' : 'Not Connected'}
         </span>
+        <button
+          type="button"
+          onClick={onOpenMobile}
+          className="rounded border border-white/15 px-2.5 py-1.5 text-sm font-semibold text-neutral-200 hover:bg-white/5"
+        >
+          Mobile Connect
+        </button>
         <button
           type="button"
           onClick={onOpenHelp}

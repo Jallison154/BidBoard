@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid';
-import type { Bidder, BidBoardEvent, DisplayPresetId, DisplaySettings, SafetySettings } from '../types';
+import type { Bidder, BidBoardEvent, DisplayPresetId, DisplaySettings, EventTitleVisibility, SafetySettings } from '../types';
 
 export const DEFAULT_SAFETY: SafetySettings = {
   requireConfirmUnknownBidder: false,
@@ -7,6 +7,8 @@ export const DEFAULT_SAFETY: SafetySettings = {
   disableAutoShowOnDuplicates: true,
   lockDisplaySettings: false,
   lockBidderList: false,
+  allowLetterNumbers: false,
+  rememberDevices: true,
 };
 
 export const DISPLAY_PRESETS: Record<Exclude<DisplayPresetId, 'custom'>, DisplaySettings> = {
@@ -28,14 +30,15 @@ export const DISPLAY_PRESETS: Record<Exclude<DisplayPresetId, 'custom'>, Display
     showLogo: true,
     eventTitle: 'BidBoard',
     eventSubtitle: '',
+    eventTitleVisibility: 'none',
     showEventTitle: false,
     showBidderNumber: true,
     showBidderName: true,
     showCompany: true,
-    transition: 'quick-fade',
+    transition: 'slide-up',
     waitingStyle: 'logo',
     waitingMessage: 'Welcome',
-    clearBehavior: 'waiting',
+    clearBehavior: 'fade-to-black',
   },
   'clean-white': {
     presetId: 'clean-white',
@@ -55,14 +58,15 @@ export const DISPLAY_PRESETS: Record<Exclude<DisplayPresetId, 'custom'>, Display
     showLogo: true,
     eventTitle: 'BidBoard',
     eventSubtitle: '',
+    eventTitleVisibility: 'none',
     showEventTitle: false,
     showBidderNumber: true,
     showBidderName: true,
     showCompany: true,
-    transition: 'quick-fade',
+    transition: 'slide-up',
     waitingStyle: 'logo',
     waitingMessage: 'Welcome',
-    clearBehavior: 'waiting',
+    clearBehavior: 'fade-to-black',
   },
   'event-gold': {
     presetId: 'event-gold',
@@ -82,14 +86,15 @@ export const DISPLAY_PRESETS: Record<Exclude<DisplayPresetId, 'custom'>, Display
     showLogo: true,
     eventTitle: 'Annual Benefit Auction',
     eventSubtitle: '',
+    eventTitleVisibility: 'always',
     showEventTitle: true,
     showBidderNumber: true,
     showBidderName: true,
     showCompany: true,
-    transition: 'fade',
+    transition: 'slide-up',
     waitingStyle: 'event-title',
     waitingMessage: 'Welcome',
-    clearBehavior: 'waiting',
+    clearBehavior: 'fade-to-black',
   },
   'high-contrast': {
     presetId: 'high-contrast',
@@ -109,16 +114,23 @@ export const DISPLAY_PRESETS: Record<Exclude<DisplayPresetId, 'custom'>, Display
     showLogo: false,
     eventTitle: 'BidBoard',
     eventSubtitle: '',
+    eventTitleVisibility: 'none',
     showEventTitle: false,
     showBidderNumber: true,
     showBidderName: true,
     showCompany: true,
-    transition: 'none',
+    transition: 'slide-up',
     waitingStyle: 'blank',
     waitingMessage: 'Welcome',
-    clearBehavior: 'waiting',
+    clearBehavior: 'fade-to-black',
   },
 };
+
+export function eventTitleVisibility(settings: DisplaySettings): EventTitleVisibility {
+  if (settings.eventTitleVisibility) return settings.eventTitleVisibility;
+  if (!settings.showEventTitle) return 'none';
+  return settings.waitingStyle === 'event-title' ? 'always' : 'on-show';
+}
 
 export function defaultDisplaySettings(): DisplaySettings {
   return { ...DISPLAY_PRESETS['bidboard-dark'] };
@@ -144,11 +156,19 @@ export function makeBidder(number: string, displayName: string, company?: string
   };
 }
 
+/** A join code that stays with one event, so a printed QR keeps working for that event. */
+export function newJoinToken(): string {
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
 export function createEvent(name: string, options?: { withDemoBidders?: boolean }): BidBoardEvent {
   const now = Date.now();
   return {
     id: uuid(),
     name,
+    joinToken: newJoinToken(),
     bidders: options?.withDemoBidders
       ? DEMO_BIDDERS.map((b) => makeBidder(b.number, b.displayName))
       : [],

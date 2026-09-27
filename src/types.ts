@@ -1,3 +1,5 @@
+import type { RememberedDevice } from './shared/socketTypes';
+
 export interface Bidder {
   id: string;
   /** Raw bidder number as entered/imported, preserving leading zeros and case. */
@@ -29,6 +31,8 @@ export type TransitionStyle = 'none' | 'fade' | 'quick-fade' | 'slide-up';
 
 export type WaitingStyle = 'blank' | 'logo' | 'event-title' | 'custom-message';
 
+export type EventTitleVisibility = 'always' | 'on-show' | 'none';
+
 export type ClearBehavior = 'waiting' | 'fade-to-black';
 
 export type DisplayPresetId =
@@ -57,6 +61,9 @@ export interface DisplaySettings {
   showLogo: boolean;
   eventTitle: string;
   eventSubtitle: string;
+  /** When the event name appears on the audience display. */
+  eventTitleVisibility: EventTitleVisibility;
+  /** Kept in sync with eventTitleVisibility for older saved events. */
   showEventTitle: boolean;
   showBidderNumber: boolean;
   showBidderName: boolean;
@@ -73,14 +80,22 @@ export interface SafetySettings {
   disableAutoShowOnDuplicates: boolean;
   lockDisplaySettings: boolean;
   lockBidderList: boolean;
+  /** When false, bidder number fields accept digits only. */
+  allowLetterNumbers: boolean;
+  /** Phones and iPads that have joined this event can reconnect without the PIN. */
+  rememberDevices: boolean;
 }
 
 export interface BidBoardEvent {
   id: string;
   name: string;
+  /** Stable code baked into the printed QR. It stays with this event. */
+  joinToken: string;
   bidders: Bidder[];
   displaySettings: DisplaySettings;
   safety: SafetySettings;
+  /** Devices allowed to reconnect to this event without the PIN. */
+  rememberedDevices?: RememberedDevice[];
   history: HistoryEntry[];
   autoShow: boolean;
   autoClearEnabled: boolean;

@@ -14,7 +14,7 @@ export function AudienceView({ embedded = false }: AudienceViewProps) {
   const { settings, current, stage } = useAudienceChannel(initialSettings, embedded ? 'audience-preview' : 'audience');
 
   useEffect(() => {
-    if (!embedded) document.title = 'BidBoard — Audience Display';
+    if (!embedded) document.title = 'BidBoard — Full Screen Display';
   }, [embedded]);
 
   return <DisplayStage settings={settings} current={current} stage={stage} />;

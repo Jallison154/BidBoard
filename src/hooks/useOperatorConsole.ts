@@ -31,7 +31,7 @@ export function useOperatorConsole() {
   const audienceWindowRef = useRef<Window | null>(null);
 
   const channel = useOperatorChannel({ settings, current: liveBidder });
-  const { pushSettings: pushSettingsToChannel } = channel;
+  const { pushSettings: pushSettingsToChannel, clearDisplay } = channel;
   const duplicateGroups = useMemo(() => findDuplicateNumbers(bidders), [bidders]);
 
   useEffect(() => {
@@ -82,10 +82,32 @@ export function useOperatorConsole() {
 
   const showPreviewNow = useCallback(() => {
     if (status.kind !== 'preview') return;
-    commitShow(status.bidder.number, status.overrideName.trim() || status.bidder.displayName, status.overrideCompany.trim() || status.bidder.company);
+    const company = status.overrideCompany.trim();
+    commitShow(status.bidder.number, status.overrideName.trim() || status.bidder.displayName, company || undefined);
     resetConsole();
     focusInput();
   }, [status, commitShow, resetConsole, focusInput]);
+
+  const showFromQuery = useCallback(
+    (query: string) => {
+      const trimmed = query.trim();
+      if (!trimmed) return 'empty' as const;
+      const matches = findBidders(bidders, trimmed);
+      if (matches.length > 1) {
+        setInputValue(trimmed);
+        setStatus({ kind: 'duplicates', query: trimmed, matches });
+        return 'duplicate' as const;
+      }
+      if (matches.length === 1) {
+        commitShow(matches[0].number, matches[0].displayName, matches[0].company);
+      } else {
+        commitShow(trimmed, '', undefined);
+      }
+      resetConsole();
+      return 'shown' as const;
+    },
+    [bidders, commitShow, resetConsole],
+  );
 
   const showUnknownNow = useCallback(() => {
     if (status.kind !== 'unknown') return;
@@ -122,8 +144,10 @@ export function useOperatorConsole() {
   }, [inputValue, status, autoShow, bidders, safety, duplicateGroups, commitShow, resetConsole, focusInput, populateFromQuery, showPreviewNow]);
 
   const selectMatch = useCallback((bidder: Bidder) => {
+    setInputValue(bidder.number);
     setStatus({ kind: 'preview', bidder, overrideName: bidder.displayName, overrideCompany: bidder.company ?? '' });
-  }, []);
+    focusInput();
+  }, [focusInput]);
 
   const setOverrideName = useCallback((name: string) => {
     setStatus((prev) => (prev.kind === 'preview' ? { ...prev, overrideName: name } : prev));
@@ -147,13 +171,20 @@ export function useOperatorConsole() {
   }, [resetConsole, focusInput]);
 
   const clearDisplayNow = useCallback(() => {
-    channel.clearDisplay();
+    clearDisplay();
     setLiveBidder(null);
     focusInput();
-  }, [channel, focusInput]);
+  }, [clearDisplay, focusInput]);
+
+  const [autoClearDeadline, setAutoClearDeadline] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!autoClearEnabled || !liveBidder) return;
+    if (!autoClearEnabled || !liveBidder) {
+      setAutoClearDeadline(null);
+      return;
+    }
+    const deadline = Date.now() + autoClearSeconds * 1000;
+    setAutoClearDeadline(deadline);
     const timeoutId = window.setTimeout(() => {
       clearDisplayNow();
     }, autoClearSeconds * 1000);
@@ -246,6 +277,7 @@ export function useOperatorConsole() {
     setInputValue,
     status,
     liveBidder,
+    autoClearDeadline,
     connected: channel.connected,
     channelSupported: channel.supported,
     resolution: channel.resolution,
@@ -259,6 +291,7 @@ export function useOperatorConsole() {
     setUnknownCompany,
     showPreviewNow,
     showUnknownNow,
+    showFromQuery,
     clearDisplayNow,
     redisplay,
     cycleHistory,

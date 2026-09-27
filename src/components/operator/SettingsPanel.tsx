@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import type { DisplayPresetId, DisplaySettings, LogoPosition, SafetySettings, TransitionStyle, WaitingStyle } from '../../types';
+import type { DisplayPresetId, DisplaySettings, EventTitleVisibility, LogoPosition, SafetySettings, TransitionStyle, WaitingStyle } from '../../types';
+import type { RememberedDevice } from '../../shared/socketTypes';
+import { eventTitleVisibility } from '../../lib/events';
 import { Modal } from '../common/Modal';
 import { RemoteSettingsPanel } from './RemoteSettingsPanel';
 import type { useRemoteServer } from '../../hooks/useRemoteServer';
@@ -10,6 +12,8 @@ interface SettingsPanelProps {
   onUpdateSettings: (patch: Partial<DisplaySettings>) => void;
   onApplyPreset: (presetId: Exclude<DisplayPresetId, 'custom'>) => void;
   onUpdateSafety: (patch: Partial<SafetySettings>) => void;
+  rememberedDevices: RememberedDevice[];
+  onForgetDevice: (deviceId: string) => void;
   onClose: () => void;
   remote: ReturnType<typeof useRemoteServer>;
 }
@@ -50,7 +54,17 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-export function SettingsPanel({ settings, safety, onUpdateSettings, onApplyPreset, onUpdateSafety, onClose, remote }: SettingsPanelProps) {
+export function SettingsPanel({
+  settings,
+  safety,
+  onUpdateSettings,
+  onApplyPreset,
+  onUpdateSafety,
+  rememberedDevices,
+  onForgetDevice,
+  onClose,
+  remote,
+}: SettingsPanelProps) {
   const [tab, setTab] = useState<Tab>('Presets');
   const locked = safety.lockDisplaySettings && tab !== 'Safety' && tab !== 'Remote';
 
@@ -292,7 +306,6 @@ export function SettingsPanel({ settings, safety, onUpdateSettings, onApplyPrese
                     ['showBidderNumber', 'Show Bidder Number'],
                     ['showBidderName', 'Show Bidder Name'],
                     ['showCompany', 'Show Company'],
-                    ['showEventTitle', 'Show Event Title'],
                   ] as const
                 ).map(([key, label]) => (
                   <label key={key} className="flex items-center gap-2 text-sm text-neutral-300">
@@ -383,7 +396,22 @@ export function SettingsPanel({ settings, safety, onUpdateSettings, onApplyPrese
 
           {tab === 'Event' && (
             <div className="flex flex-col gap-3">
-              <Field label="Event Title (shown on audience display)">
+              <Field label="Event name on the full screen display">
+                <select
+                  disabled={locked}
+                  value={eventTitleVisibility(settings)}
+                  onChange={(e) => {
+                    const visibility = e.target.value as EventTitleVisibility;
+                    onUpdateSettings({ eventTitleVisibility: visibility, showEventTitle: visibility !== 'none' });
+                  }}
+                  className={inputCls}
+                >
+                  <option value="always">Always</option>
+                  <option value="on-show">Only while a bidder is showing</option>
+                  <option value="none">Don't show</option>
+                </select>
+              </Field>
+              <Field label="Event Title (shown on the full screen display)">
                 <input
                   disabled={locked}
                   value={settings.eventTitle}
@@ -406,20 +434,66 @@ export function SettingsPanel({ settings, safety, onUpdateSettings, onApplyPrese
             <div className="flex flex-col gap-3">
               {(
                 [
-                  ['requireConfirmUnknownBidder', 'Require confirmation before showing an unknown bidder'],
-                  ['requireConfirmClear', 'Require confirmation before clearing the audience display'],
-                  ['disableAutoShowOnDuplicates', 'Disable Auto Show when duplicate bidder numbers exist'],
-                  ['lockDisplaySettings', 'Lock display settings during the event'],
-                  ['lockBidderList', 'Lock bidder-list editing during the event'],
+                  {
+                    key: 'allowLetterNumbers',
+                    label: 'Allow letters in bidder numbers',
+                    description:
+                      'The number field accepts digits only. Turn this on when a show uses letters in bidder numbers.',
+                    checked: safety.allowLetterNumbers === true,
+                  },
+                  {
+                    key: 'requireConfirmUnknownBidder',
+                    label: 'Require confirmation before showing an unknown bidder',
+                    description:
+                      'Asks before a number that is not in the bidder list goes on the full screen display.',
+                    checked: safety.requireConfirmUnknownBidder,
+                  },
+                  {
+                    key: 'requireConfirmClear',
+                    label: 'Require confirmation before clearing the full screen display',
+                    description: 'Asks before Clear Display, Escape, or C removes the bidder from the full screen display.',
+                    checked: safety.requireConfirmClear,
+                  },
+                  {
+                    key: 'disableAutoShowOnDuplicates',
+                    label: 'Disable Auto Show when duplicate bidder numbers exist',
+                    description:
+                      'With Auto Show on, a number used by more than one bidder stays in the preview so you can choose which name to show.',
+                    checked: safety.disableAutoShowOnDuplicates,
+                  },
+                  {
+                    key: 'lockDisplaySettings',
+                    label: 'Lock display settings during the event',
+                    description:
+                      'Presets, Display, Branding, and Event cannot be changed until this is turned off. Safety and Remote stay open.',
+                    checked: safety.lockDisplaySettings,
+                  },
+                  {
+                    key: 'lockBidderList',
+                    label: 'Lock bidder-list editing during the event',
+                    description: 'Import, add, edit, delete, and remove all are turned off. Search and Preview still work.',
+                    checked: safety.lockBidderList,
+                  },
+                  {
+                    key: 'rememberDevices',
+                    label: 'Remember phones and tablets that join this event',
+                    description:
+                      'A remembered device reconnects without the PIN if the connection drops. A new event starts with none.',
+                    checked: safety.rememberDevices !== false,
+                  },
                 ] as const
-              ).map(([key, label]) => (
-                <label key={key} className="flex items-center gap-2 text-sm text-neutral-300">
+              ).map((option) => (
+                <label key={option.key} className="flex items-start gap-2 text-sm text-neutral-300">
                   <input
                     type="checkbox"
-                    checked={safety[key]}
-                    onChange={(e) => onUpdateSafety({ [key]: e.target.checked })}
+                    className="mt-1"
+                    checked={option.checked}
+                    onChange={(e) => onUpdateSafety({ [option.key]: e.target.checked })}
                   />
-                  {label}
+                  <span>
+                    {option.label}
+                    <span className="block text-xs text-neutral-500">{option.description}</span>
+                  </span>
                 </label>
               ))}
             </div>
@@ -429,6 +503,9 @@ export function SettingsPanel({ settings, safety, onUpdateSettings, onApplyPrese
             <RemoteSettingsPanel
               serverOnline={remote.serverOnline}
               status={remote.status}
+              rememberedDevices={rememberedDevices}
+              rememberDevices={safety.rememberDevices !== false}
+              onForgetDevice={onForgetDevice}
               onToggleEnabled={(enabled) => remote.updateSettings({ remoteAccessEnabled: enabled })}
               onToggleAccepting={(accepting) => remote.updateSettings({ acceptingNewConnections: accepting })}
               onSetMode={(mode) => remote.updateSettings({ remoteMode: mode })}

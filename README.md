@@ -26,15 +26,9 @@ npm install
 npm run dev
 ```
 
-Opens the app with hot reload at `http://localhost:5173`. This alone is enough to use BidBoard on a single computer (operator + audience display via `BroadcastChannel`) — no server required.
+Opens the operator and the phone remote from the same server, with hot reload, at `http://localhost:3001`. A phone uses `http://<this-computer-ip>:3001/remote`. `npm run dev:all` starts that same server.
 
-To also test the mobile remote during development, run the local server alongside Vite:
-
-```bash
-npm run dev:all
-```
-
-This starts the Vite dev server (port 5173) and the remote-control server (port 3001) together. Other useful commands:
+Other useful commands:
 
 ```bash
 npm run lint        # oxlint
@@ -55,16 +49,16 @@ Open `http://localhost:3001/` on the operator computer — that's the full app, 
 
 ### Running it live at an event (Windows & macOS)
 
-1. **Start BidBoard.** On the operator's laptop, open a terminal in the project folder and run `npm run build` once, then `npm start`. Leave that terminal window open for the whole event.
-2. **Allow it through the firewall.** The first time you run it, your OS will likely prompt to allow incoming network connections for Node — click **Allow** (this is what lets phones on the same Wi-Fi reach it).
+1. **Install BidBoard once.** On the operator's laptop, double-click **windows\Install BidBoard.bat** (Windows) or **Install BidBoard.command** (macOS). That installs dependencies, builds the app, and adds a BidBoard shortcut. Windows puts it on the Desktop and in the Start Menu, and installs Node.js if it is not already there. Mac puts a BidBoard app on the Desktop and in the user's Applications folder. Mac still needs Node.js 18 or newer installed first ([nodejs.org](https://nodejs.org/)).
+2. **Start BidBoard for the event.** Open the **BidBoard** shortcut. It opens the operator page in the browser. Leave that window open for the whole event — closing it stops BidBoard. You can also double-click **windows\Start BidBoard.bat** or **Start BidBoard.command**.
+   From a terminal, if you prefer: `npm run build` once, then `npm start`, and open `http://localhost:3001/`.
+3. **Allow it through the firewall.** The first time you run it, your OS will likely prompt to allow incoming network connections for Node — click **Allow** (this is what lets phones on the same Wi-Fi reach it).
    - *Windows:* if you miss the prompt, open **Windows Defender Firewall → Allow an app through firewall**, find Node.js, and check both Private and Public.
    - *macOS:* if you miss the prompt, open **System Settings → Network → Firewall → Options**, find Node, and set it to Allow.
-3. **Put every device on the same network.** The operator computer and every phone/tablet remote must join the same Wi-Fi network (a simple travel router or hotspot is enough — no internet connection is required, only a shared local network).
-4. **Open the remote page.** In BidBoard's Settings → Remote tab, turn on **Remote Access**, then either read out the **Remote URL** or have each device scan the **QR code**.
-5. **Enter the session PIN** on the device (skipped automatically if it joined via the QR code).
-6. **Test it before doors open.** Submit a test bidder number from the remote and confirm it reaches the operator and (in Direct Show mode) the audience display.
-
-A startup script isn't required — `npm start` is the whole production entry point — but you can wrap it in a shortcut/`.command` file if you'd like a one-click launch.
+4. **Put every device on the same network.** The operator computer and every phone/tablet remote must join the same Wi-Fi network (a simple travel router or hotspot is enough — no internet connection is required, only a shared local network).
+5. **Open the remote page.** In BidBoard's Settings → Remote tab, turn on **Remote Access**, then either read out the **Remote URL** or have each device scan the **QR code**.
+6. **Enter the session PIN** on the device (skipped automatically if it joined via the QR code).
+7. **Test it before doors open.** Submit a test bidder number from the remote and confirm it reaches the operator and (in Direct Show mode) the audience display.
 
 ## First launch (operator app)
 

@@ -65,10 +65,18 @@ export function useOperatorChannel(state: OperatorChannelState) {
   }, []);
 
   const showBidder = useCallback((bidderNumber: string, displayName: string, company?: string) => {
+    stateRef.current = {
+      ...stateRef.current,
+      current: { bidderNumber, displayName, company },
+    };
     channelRef.current?.send({ kind: 'show', bidderNumber, displayName, company, ts: Date.now() });
   }, []);
 
   const clearDisplay = useCallback(() => {
+    // Drop the bidder before the React state update lands. A display that
+    // reconnects in that gap asks for the current bidder, and would otherwise
+    // put the number back on screen right after a clear.
+    stateRef.current = { ...stateRef.current, current: null };
     channelRef.current?.send({ kind: 'clear', ts: Date.now() });
   }, []);
 

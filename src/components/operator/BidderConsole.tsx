@@ -1,4 +1,20 @@
+import { useEffect, useState } from 'react';
 import type { OperatorConsole } from '../../hooks/useOperatorConsole';
+import { filterBidderNumber } from '../../lib/normalize';
+
+export function AutoClearCountdown({ deadline }: { deadline: number | null }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (deadline == null) return;
+    const id = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, [deadline]);
+
+  if (deadline == null) return null;
+  const seconds = Math.max(0, Math.ceil((deadline - now) / 1000));
+  return <span className="tabular-nums">Clears in {seconds}s</span>;
+}
 
 interface BidderConsoleProps {
   console: OperatorConsole;
@@ -10,6 +26,7 @@ interface BidderConsoleProps {
   onSetAutoClearSeconds: (seconds: number) => void;
   onRequestClear: () => void;
   onRequestShowUnknown: () => void;
+  allowLetterNumbers: boolean;
 }
 
 export function BidderConsole({
@@ -22,7 +39,15 @@ export function BidderConsole({
   onSetAutoClearSeconds,
   onRequestClear,
   onRequestShowUnknown,
+  allowLetterNumbers,
 }: BidderConsoleProps) {
+  useEffect(() => {
+    c.setInputValue((current) => {
+      const next = filterBidderNumber(current, allowLetterNumbers);
+      return next === current ? current : next;
+    });
+  }, [allowLetterNumbers, c.setInputValue]);
+
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-white/10 bg-neutral-900/60 p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -45,15 +70,18 @@ export function BidderConsole({
               <span className={`h-2 w-2 rounded-full ${autoClearEnabled ? 'bg-blue-400' : 'bg-neutral-600'}`} />
               Auto Clear {autoClearEnabled ? 'On' : 'Off'}
             </button>
-            <input
-              type="number"
-              min={1}
-              max={300}
-              value={autoClearSeconds}
-              onChange={(e) => onSetAutoClearSeconds(Number(e.target.value) || 1)}
-              className="w-9 rounded border-none bg-black/30 py-0.5 text-center text-xs font-bold normal-case text-white outline-none"
-            />
-            <span className="normal-case">sec</span>
+            <label className="flex items-center gap-1 normal-case">
+              <input
+                type="number"
+                min={1}
+                max={300}
+                aria-label="Auto clear seconds"
+                value={autoClearSeconds}
+                onChange={(e) => onSetAutoClearSeconds(Number(e.target.value) || 1)}
+                className="w-14 rounded border border-white/10 bg-black/30 px-1 py-0.5 text-center text-xs font-bold text-white outline-none"
+              />
+              sec
+            </label>
           </div>
           <button
             type="button"
@@ -74,7 +102,8 @@ export function BidderConsole({
         id="bidder-number-input"
         ref={c.inputRef}
         value={c.inputValue}
-        onChange={(e) => c.setInputValue(e.target.value.replace(/\D/g, ''))}
+        onChange={(e) => c.setInputValue(filterBidderNumber(e.target.value, allowLetterNumbers))}
+        inputMode={allowLetterNumbers ? 'text' : 'numeric'}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
@@ -84,9 +113,7 @@ export function BidderConsole({
             c.handleEscape();
           }
         }}
-        placeholder="Enter Number"
-        inputMode="numeric"
-        pattern="[0-9]*"
+        placeholder="Enter number"
         autoFocus
         autoComplete="off"
         spellCheck={false}
@@ -97,7 +124,7 @@ export function BidderConsole({
         <button
           type="button"
           onClick={c.handleLookup}
-          className="flex-1 rounded-md border border-white/15 px-4 py-2 text-sm font-semibold text-neutral-200 hover:bg-white/5"
+          className="flex-1 whitespace-nowrap rounded-md border border-white/15 px-4 py-2 text-sm font-semibold text-neutral-200 hover:bg-white/5"
         >
           Lookup
         </button>
@@ -105,14 +132,14 @@ export function BidderConsole({
           type="button"
           onClick={c.showPreviewNow}
           disabled={c.status.kind !== 'preview'}
-          className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-900 disabled:text-blue-300/50"
+          className="flex-1 whitespace-nowrap rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-900 disabled:text-blue-300/50"
         >
           Show
         </button>
         <button
           type="button"
           onClick={onRequestClear}
-          className="flex-1 rounded-md border border-red-500/40 px-4 py-2 text-sm font-semibold text-red-300 hover:bg-red-500/10"
+          className="flex-1 whitespace-nowrap rounded-md border border-red-500/40 px-4 py-2 text-sm font-semibold text-red-300 hover:bg-red-500/10"
         >
           Clear Display
         </button>
@@ -131,6 +158,12 @@ export function BidderConsole({
                 <input
                   value={c.status.overrideName}
                   onChange={(e) => c.setOverrideName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      c.showPreviewNow();
+                    }
+                  }}
                   className="mt-1 w-full rounded border border-white/15 bg-black/40 px-2 py-1.5 text-base text-white outline-none focus:border-blue-500"
                 />
               </label>
@@ -139,6 +172,12 @@ export function BidderConsole({
                 <input
                   value={c.status.overrideCompany}
                   onChange={(e) => c.setOverrideCompany(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      c.showPreviewNow();
+                    }
+                  }}
                   className="mt-1 w-full rounded border border-white/15 bg-black/40 px-2 py-1.5 text-base text-white outline-none focus:border-blue-500"
                 />
               </label>
@@ -173,7 +212,7 @@ export function BidderConsole({
                 No bidder found for "{c.status.query}"
               </span>
               <p className="text-xs text-neutral-500">
-                The audience display has not changed. You can correct the number above, or type a name to display it
+                The full screen display has not changed. You can correct the number above, or type a name to display it
                 anyway.
               </p>
               <label className="text-xs text-neutral-400">
@@ -181,6 +220,12 @@ export function BidderConsole({
                 <input
                   value={c.status.nameInput}
                   onChange={(e) => c.setUnknownName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      onRequestShowUnknown();
+                    }
+                  }}
                   placeholder="Enter a name manually"
                   className="mt-1 w-full rounded border border-white/15 bg-black/40 px-2 py-1.5 text-base text-white outline-none focus:border-blue-500"
                 />
@@ -190,6 +235,12 @@ export function BidderConsole({
                 <input
                   value={c.status.companyInput}
                   onChange={(e) => c.setUnknownCompany(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      onRequestShowUnknown();
+                    }
+                  }}
                   className="mt-1 w-full rounded border border-white/15 bg-black/40 px-2 py-1.5 text-base text-white outline-none focus:border-blue-500"
                 />
               </label>

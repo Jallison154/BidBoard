@@ -3,12 +3,14 @@ import type {
   PendingRequestInfo,
   RemoteCurrentBidder,
   RemoteDeviceInfo,
+  RemoteCatalog,
   RemoteMode,
   RemotePermission,
+  RememberedDevice,
 } from '../src/shared/socketTypes';
 
 const PIN_TTL_MS = 1000 * 60 * 60 * 12; // a PIN stays valid for a long working session
-const TOKEN_TTL_MS = 1000 * 60 * 10; // QR join tokens are short-lived
+const TOKEN_TTL_MS = PIN_TTL_MS; // a scanned QR code stays valid for the same working session as the PIN
 const REMOTE_STALE_MS = 1000 * 60 * 30; // drop remotes that stop heartbeating entirely
 
 export interface ConnectionToken {
@@ -24,13 +26,18 @@ export interface RemoteRecord extends RemoteDeviceInfo {
 export class ServerState {
   remoteAccessEnabled = false;
   acceptingNewConnections = true;
-  remoteMode: RemoteMode = 'approval';
+  remoteMode: RemoteMode = 'direct';
   allowRemoteClear = false;
   eventName = '';
   liveBidder: RemoteCurrentBidder | null = null;
+  catalog: RemoteCatalog = { bidders: [], history: [] };
+  rememberDevices = true;
+  readonly rememberedDevices = new Map<string, RememberedDevice>();
   operatorSocketId: string | null = null;
 
   pin: string;
+  /** Printed QR code for the event that is open. It does not expire with the PIN. */
+  eventJoinToken: string | null = null;
   private pinIssuedAt: number;
   private token: ConnectionToken;
 
@@ -59,11 +66,21 @@ export class ServerState {
     return this.pin;
   }
 
+  setEventJoinToken(token: string | null): void {
+    const trimmed = token?.trim() ?? '';
+    this.eventJoinToken = trimmed || null;
+  }
+
   get currentToken(): string {
     if (Date.now() > this.token.expiresAt) {
       this.token = ServerState.generateToken();
     }
     return this.token.token;
+  }
+
+  /** Token encoded in the QR. An open event uses its own code so a printout stays valid. */
+  get qrToken(): string {
+    return this.eventJoinToken ?? this.currentToken;
   }
 
   isPinValid(candidate: string): boolean {
@@ -72,12 +89,18 @@ export class ServerState {
   }
 
   isTokenValid(candidate: string): boolean {
+    if (this.eventJoinToken) return candidate === this.eventJoinToken;
     if (candidate !== this.token.token) return false;
     if (Date.now() > this.token.expiresAt) return false;
     return true;
   }
 
-  registerOrUpdateRemote(deviceId: string, deviceName: string, socketId: string): RemoteRecord {
+  registerOrUpdateRemote(
+    deviceId: string,
+    deviceName: string,
+    socketId: string,
+    permission?: RemotePermission,
+  ): RemoteRecord {
     const existing = this.remotes.get(deviceId);
     if (existing) {
       existing.name = deviceName || existing.name;
@@ -88,7 +111,7 @@ export class ServerState {
     const record: RemoteRecord = {
       id: deviceId,
       name: deviceName || 'Remote',
-      permission: 'keypad-only',
+      permission: permission ?? 'keypad-only',
       connectedAt: Date.now(),
       lastActivityAt: Date.now(),
       socketId,

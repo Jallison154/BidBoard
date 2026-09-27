@@ -309,11 +309,13 @@ describe('clear-display permission', () => {
     await expect(commandPromise).resolves.toBeUndefined();
   });
 
-  it('rejects a clear request from a keypad-only remote', async () => {
+  it('rejects a clear request from a view-only remote', async () => {
     const operator = await makeOperator();
     operator.emit('operator:updateSettings', { remoteAccessEnabled: true, allowRemoteClear: true });
     const status = await once(operator, 'server:status');
-    const remote = await authenticateRemote(status.pin, 'keypad-device');
+    const remote = await authenticateRemote(status.pin, 'view-device');
+    operator.emit('operator:updateRemotePermission', { remoteId: 'view-device', permission: 'view-only' });
+    await once(operator, 'server:status');
 
     const errorPromise = once(remote, 'error');
     remote.emit('remote:clearRequest', { requestId: 'clear-2' });

@@ -8,6 +8,11 @@ export function normalizeBidderNumber(raw: string): string {
   return raw.trim().replace(/\s+/g, ' ').toUpperCase();
 }
 
+/** Keeps digits, or digits and letters when a show uses mixed bidder numbers. */
+export function filterBidderNumber(raw: string, allowLetters: boolean): string {
+  return raw.replace(allowLetters ? /[^0-9a-zA-Z]/g : /[^0-9]/g, '');
+}
+
 export function sanitizeText(raw: string): string {
   return raw.trim().replace(/\s+/g, ' ');
 }

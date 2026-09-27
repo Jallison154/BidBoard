@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import type { AudienceCurrentBidder, DisplaySettings } from '../../types';
+import { eventTitleVisibility } from '../../lib/events';
 import type { AudienceStage } from '../../hooks/useDisplayChannel';
 import { useAutoFitText } from '../../hooks/useAutoFitText';
 import './audience.css';
@@ -23,19 +24,30 @@ function Logo({ settings, position, big }: { settings: DisplaySettings; position
   );
 }
 
+function EventTitle({ settings }: { settings: DisplaySettings }) {
+  return (
+    <div className="flex flex-col items-center gap-2 text-center">
+      <div className="bb-event-title">{settings.eventTitle}</div>
+      {settings.eventSubtitle && <div className="bb-event-subtitle">{settings.eventSubtitle}</div>}
+    </div>
+  );
+}
+
 function WaitingContent({ settings }: { settings: DisplaySettings }) {
+  const visibility = eventTitleVisibility(settings);
+  const showTitle = visibility === 'always';
   const showCornerLogo = settings.showLogo && settings.logoPosition !== 'center-waiting-only' && settings.waitingStyle !== 'logo';
   const showCenterLogo =
     settings.showLogo && (settings.waitingStyle === 'logo' || settings.logoPosition === 'center-waiting-only');
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-6 px-8">
+    <div className="relative flex h-full w-full flex-col items-center justify-center gap-6 px-8">
       {showCornerLogo && <Logo settings={settings} position={settings.logoPosition} />}
       {showCenterLogo && <Logo settings={settings} position={settings.logoPosition} big />}
-      {settings.waitingStyle === 'event-title' && settings.showEventTitle && (
-        <div className="flex flex-col items-center gap-2 text-center">
-          <div className="bb-event-title">{settings.eventTitle}</div>
-          {settings.eventSubtitle && <div className="bb-event-subtitle">{settings.eventSubtitle}</div>}
+      {showTitle && settings.waitingStyle === 'event-title' && <EventTitle settings={settings} />}
+      {showTitle && settings.waitingStyle !== 'event-title' && (
+        <div className="absolute top-8">
+          <EventTitle settings={settings} />
         </div>
       )}
       {settings.waitingStyle === 'custom-message' && (
@@ -55,10 +67,9 @@ function BidderContent({ settings, current }: { settings: DisplaySettings; curre
       {settings.showLogo && settings.logoPosition !== 'center-waiting-only' && (
         <Logo settings={settings} position={settings.logoPosition} />
       )}
-      {settings.showEventTitle && (
-        <div className="absolute top-8 flex flex-col items-center text-center">
-          <div className="bb-event-title">{settings.eventTitle}</div>
-          {settings.eventSubtitle && <div className="bb-event-subtitle">{settings.eventSubtitle}</div>}
+      {eventTitleVisibility(settings) !== 'none' && (
+        <div className="absolute top-8">
+          <EventTitle settings={settings} />
         </div>
       )}
       <div className={`flex flex-col ${align} gap-[calc(1rem*var(--bb-spacing))]`}>

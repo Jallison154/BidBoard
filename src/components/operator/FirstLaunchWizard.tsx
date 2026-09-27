@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { DisplayPresetId } from '../../types';
 import { useApp } from '../../context/AppContext';
+import { DISPLAY_PRESETS } from '../../lib/events';
+import { saveEventFile } from '../../lib/eventFile';
 
 interface FirstLaunchWizardProps {
   onDone: (opts: { openImport: boolean; openAudience: boolean }) => void;
@@ -20,9 +22,22 @@ export function FirstLaunchWizard({ onDone, onSkip }: FirstLaunchWizardProps) {
   const [eventName, setEventName] = useState('My Auction');
   const [bidderChoice, setBidderChoice] = useState<'demo' | 'import' | 'empty'>('demo');
   const [preset, setPreset] = useState<Exclude<DisplayPresetId, 'custom'>>('bidboard-dark');
+  const [saveFile, setSaveFile] = useState(true);
 
   const finish = () => {
-    app.newEvent(eventName.trim() || 'My Event', bidderChoice === 'demo');
+    const event = app.newEvent(eventName.trim() || 'My Event', bidderChoice === 'demo');
+    app.applyPreset(preset);
+    if (saveFile) {
+      void saveEventFile({
+        ...event,
+        displaySettings: {
+          ...DISPLAY_PRESETS[preset],
+          eventTitle: event.displaySettings.eventTitle,
+          eventSubtitle: event.displaySettings.eventSubtitle,
+          logoDataUrl: event.displaySettings.logoDataUrl,
+        },
+      });
+    }
     onDone({ openImport: bidderChoice === 'import', openAudience: true });
   };
 
@@ -114,6 +129,10 @@ export function FirstLaunchWizard({ onDone, onSkip }: FirstLaunchWizardProps) {
                 </button>
               ))}
             </div>
+            <label className="flex items-center gap-2 text-xs text-neutral-300">
+              <input type="checkbox" checked={saveFile} onChange={(e) => setSaveFile(e.target.checked)} />
+              Save a file you can copy to another computer
+            </label>
             <div className="mt-2 flex justify-between">
               <button type="button" onClick={() => setStep(2)} className="rounded px-3 py-2 text-sm text-neutral-400 hover:bg-white/5">
                 Back

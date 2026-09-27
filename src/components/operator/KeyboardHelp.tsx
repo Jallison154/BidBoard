@@ -1,12 +1,12 @@
 import { Modal } from '../common/Modal';
 
 const SHORTCUTS: [string, string][] = [
-  ['Type a number/letter', 'Focus the bidder input'],
-  ['Enter', 'Preview, or show the previewed bidder'],
+  ['Type a number', 'Focus the bidder input and start typing. Letters type too when Allow letters in bidder numbers is on.'],
+  ['Enter', 'Preview, or show the previewed bidder (also from the name fields)'],
   ['Escape', 'Clear the current input or preview'],
-  ['Space', 'Show the previewed bidder (when input is empty)'],
-  ['C', 'Clear the audience display (when input is empty)'],
-  ['F', 'Open or focus the audience display window'],
+  ['Space', 'Show the previewed bidder'],
+  ['C', 'Clear the full screen display (when the bidder field is empty and not focused)'],
+  ['F', 'Open or focus the full screen display window'],
   ['Up / Down', 'Cycle through recently displayed bidders'],
 ];
 
