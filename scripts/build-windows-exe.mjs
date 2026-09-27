@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const releaseDir = path.join(root, 'release');
 const cacheDir = path.join(releaseDir, 'cache');
-const bundlePath = path.join(cacheDir, 'server.cjs');
+const bundlePath = path.join(cacheDir, 'server.mjs');
 const blobPath = path.join(cacheDir, 'sea-prep.blob');
 const configPath = path.join(cacheDir, 'sea-config.json');
 const nodeExe = path.join(cacheDir, 'node.exe');
@@ -41,7 +41,7 @@ run('npx', [
   '--bundle',
   '--platform=node',
   `--target=node${process.versions.node.split('.')[0]}`,
-  '--format=cjs',
+  '--format=esm',
   `--outfile=${bundlePath}`,
   '--external:vite',
 ]);
